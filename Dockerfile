@@ -1,4 +1,9 @@
-FROM python:3.7-stretch
+#docker images -a | grep "<none>" | awk '{print $3}' | xargs docker rmi
+#docker rm $(docker ps -a -f status=exited -q)
+
+
+#FROM python:3.7-stretch
+FROM debian:latest
 MAINTAINER Jaap Blom <jblom@beeldengeluid.nl>
 
 # This Dockerfile is both an extension and a slim-down to Laurens Walbeek's Kaldi_NL Dockerfile:
@@ -12,45 +17,67 @@ MAINTAINER Jaap Blom <jblom@beeldengeluid.nl>
 #   - input & output directories for the offline transcoding
 #   - DANE ASR worker is now the main process
 
-ARG NUM_BUILD_CORES=2
+ARG NUM_BUILD_CORES=1
 ENV NUM_BUILD_CORES ${NUM_BUILD_CORES}
 
-RUN apt-get update && apt-get install -y  \
-    procps \
+#split up in different layers, so the image building does not take so long after a small change
+
+#first make sure the apt-get repo's are up to date
+RUN apt-get update
+
+#basic make stuff
+RUN apt-get install -y procps \
     autoconf \
-    automake \
-    bzip2 \
+    automake
+
+#g++, fortran, git & bzip2
+RUN apt-get install -y bzip2 \
     g++ \
     git \
-    gfortran \
-    gstreamer1.0-plugins-good \
+    gfortran
+
+#all gstreamer stuff
+RUN apt-get install -y gstreamer1.0-plugins-good \
     gstreamer1.0-tools \
     gstreamer1.0-pulseaudio \
     gstreamer1.0-plugins-bad \
     gstreamer1.0-plugins-base \
-    gstreamer1.0-plugins-ugly  \
-    libatlas3-base \
+    gstreamer1.0-plugins-ugly
+
+#libtool and make
+RUN apt-get install -y libatlas3-base \
     libgstreamer1.0-dev \
     libtool-bin \
-    make \
-    perl \
+    make
+
+#perl and python libs
+RUN apt-get install -y perl \
     python2.7 \
     python3 \
     python-pip \
+    python3-pip \
     python-yaml \
     python-simplejson \
-    python-gi \
-    subversion \
-    wget \
-    zlib1g-dev && \
-    apt-get clean autoclean && \
-    apt-get autoremove -y && \
-    pip install ws4py==0.3.2 && \
+    python-gi
+
+#subversion, wget and zlib1g-dev
+RUN apt-get install -y subversion wget zlib1g-dev
+
+#clean all crap
+RUN apt-get clean autoclean && \
+    apt-get autoremove -y
+
+#pip install some python2.7 shit for Kaldi
+RUN pip install ws4py==0.3.2 && \
     pip install tornado==4.5.3 --upgrade --force-reinstall && \
     ln -s /usr/bin/python2.7 /usr/bin/python ; ln -s -f bash /bin/sh
 
+#ln: failed to create symbolic link '/usr/bin/python': File exists
+#debconf: delaying package configuration, since apt-utils is not installed
+
 WORKDIR /opt
 
+#install Kaldi third party tools
 RUN apt-get install -y \
     time \
     sox \
@@ -58,15 +85,20 @@ RUN apt-get install -y \
     default-jre \
     unzip
 
-RUN git clone https://github.com/kaldi-asr/kaldi && \
-    cd /opt/kaldi/tools && \
-    make -j${NUM_BUILD_CORES} -l 2.0 && \
-    ./install_portaudio.sh
+#get kaldi
+RUN git clone https://github.com/kaldi-asr/kaldi
+
+#the tools dir of Kaldi contains the main INSTALL & make file
+WORKDIR /opt/kaldi/tools
+
+#-l 2.0
+RUN make -j${NUM_BUILD_CORES}
+RUN ./install_portaudio.sh
 
 # required for the latest Kaldi instance (Math Kernel Libraries)
-RUN cd /opt/kaldi/tools && \
-    extras/install_mkl.sh
+RUN extras/install_mkl.sh
 
+#configure, make install of Kaldi
 RUN cd /opt/kaldi/src && ./configure --shared && \
     sed -i '/-g # -O0 -DKALDI_PARANOID/c\-O3 -DNDEBUG' kaldi.mk && \
     make depend && make
@@ -87,14 +119,17 @@ RUN  cd /opt && tar -xvzf Kaldi_NL.tar.gz && rm Kaldi_NL.tar.gz && \
 RUN apt-get install -y \
     ffmpeg
 
-COPY /src /src
+COPY ./ /src
 
-# RUN pip install pipenv
+RUN pip3 install pipenv
+RUN pipenv --python=/usr/bin/python3
+RUN pipenv shell
+RUN pipenv install
 # COPY Pipfile /tmp
 # RUN cd /tmp && pipenv lock --requirements > requirements.txt
 
-COPY requirements.txt /src/
-RUN pip3 install -r /src/requirements.txt
+#COPY requirements.txt /src/
+#RUN pip install -r /src/requirements.txt
 
 RUN mkdir /input-files
 RUN mkdir /output-files
