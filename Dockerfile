@@ -103,7 +103,8 @@ RUN cd /opt/kaldi/src && ./configure --shared && \
     sed -i '/-g # -O0 -DKALDI_PARANOID/c\-O3 -DNDEBUG' kaldi.mk && \
     make depend && make
 
-# somehow the models should go in the gstreamer directory, since we did not install that we create it manually
+# because we use the prebuilt Kaldi_NL, we need to create the dir that this prebuilt instance expects
+# to contain the language model
 RUN mkdir /opt/kaldi-gstreamer-server
 
 RUN cd /opt/kaldi-gstreamer-server && \
@@ -121,19 +122,22 @@ RUN apt-get install -y \
 
 COPY ./ /src
 
-RUN pip3 install pipenv
-RUN pipenv --python=/usr/bin/python3
-RUN pipenv shell
-RUN pipenv install
+#RUN pip3 install pipenv
+#RUN pipenv --python=/usr/bin/python3
+#RUN pipenv shell
+#RUN pipenv install
 # COPY Pipfile /tmp
 # RUN cd /tmp && pipenv lock --requirements > requirements.txt
 
-#COPY requirements.txt /src/
-#RUN pip install -r /src/requirements.txt
+COPY requirements.txt /src/
+RUN pip3 install -r /src/requirements.txt
 
 RUN mkdir /input-files
 RUN mkdir /output-files
 RUN mkdir /asr-input
 RUN mkdir /asr-output
+
+#for testing a DAAN video
+COPY DANSTUMEE____-HRE000053D0.mp4 /input-files/DANSTUMEE____-HRE000053D0.mp4
 
 CMD ["python3","-u","/src/worker.py"]
