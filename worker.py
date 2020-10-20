@@ -97,7 +97,7 @@ class asr_worker(DANE.base_classes.base_worker):
 
 	def asr(self, input_path):
 		print("Starting asr")
-		cmd = "cd /opt/Kaldi_NL; ./decode.sh {0} /asr-output/".format(input_path)
+		cmd = "cd /opt/Kaldi_NL; ./decode.sh {0} /asr-output".format(input_path)
 		print(cmd)
 		process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
 		stdout = process.communicate()[0]  # wait until finished. Remove stdout stuff if letting run in background and continue.
@@ -133,20 +133,23 @@ class asr_worker(DANE.base_classes.base_worker):
 		# TODO Send tar with features somewhere
 		### TEMP FOR RESEARCH
 		word_json = self.create_word_json(os.path.join(os.sep, 'asr-output', '1Best.ctm'))
-		file_destination = os.path.join(os.sep, 'input-files', 'Videos', original_file, original_file + "_asr.json")
+		#file_destination = os.path.join(os.sep, 'input-files', 'Videos', original_file, original_file + "_asr.json")
 
-		with open(file_destination, 'w') as outfile:
-			json.dump(word_json, outfile, indent=4)
+		print('got a word cloud json')
+		print(json.dumps(word_json, indent=4, sort_keys=True))
+		#with open(file_destination, 'w+') as outfile:
+		#	json.dump(word_json, outfile, indent=4)
 
 
-		self.remove_files(os.path.join(os.sep, 'asr-output'))
-		self.remove_files(os.path.join(os.sep, 'asr-input'))
+		#self.remove_files(os.path.join(os.sep, 'asr-output'))
+		#self.remove_files(os.path.join(os.sep, 'asr-input'))
 		return True
 
 	def create_word_json(self, transcript):
 		word_json = []
 		with open(transcript, encoding='utf-8', mode='r') as file:
 			for line in file.readlines():
+				print(line)
 				data = line.split(' ')
 
 				start_time = float(data[2]) * 1000  # in millisec

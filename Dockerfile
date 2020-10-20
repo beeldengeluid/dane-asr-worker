@@ -6,7 +6,7 @@
 FROM debian:latest
 MAINTAINER Jaap Blom <jblom@beeldengeluid.nl>
 
-# This Dockerfile is both an extension and a slim-down to Laurens Walbeek's Kaldi_NL Dockerfile:
+# This Dockerfile is both an extension and a slim-down to Laurens van der Werff's Kaldi_NL Dockerfile:
 #   https://github.com/laurensw75/docker-Kaldi-NL/blob/master/Dockerfile
 #
 # What has been slimmed-down:
@@ -88,6 +88,9 @@ RUN apt-get install -y \
 #get kaldi
 RUN git clone https://github.com/kaldi-asr/kaldi
 
+# checkout an OLD version that JW was using at the time. This should work. TODO build Kaldi_NL from scratch
+RUN cd kaldi && git checkout bf0ee72db10155348ef9150b0cb755c0afe16a26
+
 #the tools dir of Kaldi contains the main INSTALL & make file
 WORKDIR /opt/kaldi/tools
 
@@ -139,5 +142,6 @@ RUN mkdir /asr-output
 
 #for testing a DAAN video
 COPY DANSTUMEE____-HRE000053D0.mp4 /input-files/DANSTUMEE____-HRE000053D0.mp4
+COPY 1272-128104-0000.wav /input-files/1272-128104-0000.wav
 
 CMD ["python3","-u","/src/worker.py"]
