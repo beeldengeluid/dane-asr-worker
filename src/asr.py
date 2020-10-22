@@ -4,6 +4,8 @@ import tarfile
 import glob
 import json
 
+from settings import ASR_OUTPUT_DIR, ASR_PACKAGE_NAME, ASR_WORD_JSON_FILE
+
 """
 This module contains functions for running audio files through Kaldi_NL to generate a speech transcript.
 
@@ -12,19 +14,13 @@ Moreover this module has functions for:
 - generating a JSON file (based on the 1Best.ctm transcript file)
 - packaging the ASR output (as a tar)
 
-For now this module defines its own input and output dirs (TODO move this up to the settings.py)
 """
-
-ASR_INPUT = 'asr-input'
-ASR_OUTPUT = 'asr-output'
-ASR_PACKAGE_NAME = 'asr-features.tar.gz'
 ASR_TRANSCRIPT_FILE = '1Best.ctm'
-WORD_JSON_FILE = 'words.json'
 
-#runs the asr on the input path and puts the results in the ASR_OUTPUT dir
+#runs the asr on the input path and puts the results in the ASR_OUTPUT_DIR dir
 def run_asr(input_path, asset_id):
 	print("Starting ASR")
-	cmd = "cd /opt/Kaldi_NL; ./decode.sh {0} /{1}/{2}".format(input_path, ASR_OUTPUT, asset_id)
+	cmd = "cd /opt/Kaldi_NL; ./decode.sh {0} /{1}/{2}".format(input_path, ASR_OUTPUT_DIR, asset_id)
 	print(cmd)
 	process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
 	stdout = process.communicate()[0]  # wait until finished. Remove stdout stuff if letting run in background and continue.
@@ -40,6 +36,9 @@ def process_asr_output(asset_id):
 
 	#create a word.json file
 	create_word_json(asset_id, True)
+
+	#package the output
+	package_output(asset_id)
 
 	#package the features and json file, so it can be used for indexing or something else
 	return {'state': 200, 'message': 'Successfully processed {0}'.format(asset_id)}
@@ -96,10 +95,10 @@ def create_word_json(asset_id, save_in_asr_output=False):
 	return word_json
 
 def get_output_dir(asset_id):
-	return os.path.join(os.sep, ASR_OUTPUT, asset_id)
+	return os.path.join(os.sep, ASR_OUTPUT_DIR, asset_id)
 
 def __get_transcript_file_path(asset_id):
 	return os.path.join(os.sep, get_output_dir(asset_id), ASR_TRANSCRIPT_FILE)
 
 def __get_words_file_path(asset_id):
-	return os.path.join(os.sep, get_output_dir(asset_id), WORD_JSON_FILE)
+	return os.path.join(os.sep, get_output_dir(asset_id), ASR_WORD_JSON_FILE)

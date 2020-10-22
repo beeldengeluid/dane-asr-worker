@@ -1,7 +1,7 @@
 import os
 import ntpath
 import shutil
-from asr import run_asr, process_asr_output, create_word_json, ASR_INPUT, ASR_OUTPUT
+from asr import run_asr, process_asr_output, create_word_json
 from transcode import transcode_to_mp3
 
 """
@@ -50,7 +50,7 @@ def process_input_file(input_file_path):
 
 	#run the ASR
 	try:
-		run_asr(input_file_path, asset_id)
+		run_asr(asr_input_path, asset_id)
 	except Exception as e:
 		return {
 			'state': 500,

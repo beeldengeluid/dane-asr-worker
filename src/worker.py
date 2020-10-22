@@ -39,7 +39,7 @@ class asr_worker(DANE.base_classes.base_worker):
 
 	def test_run(self):
 		print('DOING A TEST RUN')
-		resp = process_input_file(os.path.join(os.sep, 'input-files', self.config.ASR.AUDIO_TEST_FILE))
+		resp = process_input_file(os.path.join(os.sep, 'input-files', self.config.ASR.VIDEO_TEST_FILE))
 		print(json.dumps(resp, indent=4, sort_keys=True))
 
 	#DANE callback function, called whenever there is a job for this worker

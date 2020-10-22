@@ -4,13 +4,10 @@ from flask import request, Response
 
 import os
 import json
+from settings import APP_HOST, APP_PORT
 from work_processor import process_input_file
 
 app = Flask(__name__)
-
-#init the config
-app.config.from_object('settings.Config')
-app.debug = app.config['DEBUG']
 
 """------------------------------------------------------------------------------
 PING / HEARTBEAT ENDPOINT
@@ -34,4 +31,4 @@ def process():
 	return Response(json.dumps(resp), mimetype='application/json')
 
 if __name__ == '__main__':
-	app.run(host=app.config['APP_HOST'], port=app.config['APP_PORT'])
+	app.run(host=APP_HOST, port=APP_PORT)
