@@ -68,7 +68,7 @@ class asr_worker(DANE.base_classes.base_worker):
 
 		# Do ASR
 		try:
-			self.asr(asr_input)
+			self.asr(asr_input, file_name)
 			print("Asr Done")
 		except Exception as e:
 			print(json.dumps({
@@ -95,15 +95,15 @@ class asr_worker(DANE.base_classes.base_worker):
 		print('calling back')
 		print(self.config.ASR.VIDEO_TEST_FILE)
 
-	def asr(self, input_path):
+	def asr(self, input_path, file_name):
 		print("Starting asr")
-		cmd = "cd /opt/Kaldi_NL; ./decode.sh {0} /asr-output".format(input_path)
+		cmd = "cd /opt/Kaldi_NL; ./decode.sh {0} /asr-output/{1}".format(input_path, file_name)
 		print(cmd)
 		process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
 		stdout = process.communicate()[0]  # wait until finished. Remove stdout stuff if letting run in background and continue.
 
-	def process_results(self, original_file):
-		if not os.path.isfile(os.path.join(os.sep, 'asr-output', '1Best.ctm')):
+	def process_results(self, file_name):
+		if not os.path.isfile(os.path.join(os.sep, 'asr-output', file_name, '1Best.ctm')):
 
 			self.remove_files(os.path.join(os.sep, 'asr-output'))
 			self.remove_files(os.path.join(os.sep, 'asr-input'))
@@ -115,12 +115,12 @@ class asr_worker(DANE.base_classes.base_worker):
 			return False
 
 		files_to_be_added = [
-			'/asr-output/liumlog/*.seg',
-			'/asr-output/1Best.*',
-			'/asr-output/intermediate/decode/*'
+			'/asr-output/{0}/liumlog/*.seg'.format(file_name),
+			'/asr-output/{0}/1Best.*'.format(file_name),
+			'/asr-output/{0}/intermediate/decode/*'.format(file_name)
 		]
 
-		tar_path = os.path.join(os.sep, 'asr-output', original_file + "asr_features.tar.gz")
+		tar_path = os.path.join(os.sep, 'asr-output', file_name + "asr_features.tar.gz")
 		tar = tarfile.open(tar_path, "w:gz")
 
 		for pattern in files_to_be_added:
@@ -133,7 +133,7 @@ class asr_worker(DANE.base_classes.base_worker):
 		# TODO Send tar with features somewhere
 		### TEMP FOR RESEARCH
 		word_json = self.create_word_json(os.path.join(os.sep, 'asr-output', '1Best.ctm'))
-		#file_destination = os.path.join(os.sep, 'input-files', 'Videos', original_file, original_file + "_asr.json")
+		#file_destination = os.path.join(os.sep, 'input-files', 'Videos', file_name, file_name + "_asr.json")
 
 		print('got a word cloud json')
 		print(json.dumps(word_json, indent=4, sort_keys=True))
@@ -185,6 +185,7 @@ class asr_worker(DANE.base_classes.base_worker):
 if __name__ == '__main__':
 	w = asr_worker(cfg)
 
+	"""
 	#create some dummy task & document
 	t = Task('Video.ASR', priority=1, _id = None, api = None, state=None, msg=None)
 	d = Document({
@@ -198,4 +199,4 @@ if __name__ == '__main__':
 
 	#directly do the callback to test ASR without the DANE server
 	w.callback(t, d)
-
+	"""

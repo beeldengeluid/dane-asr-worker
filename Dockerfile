@@ -71,7 +71,7 @@ RUN apt-get clean autoclean && \
 RUN pip install ws4py==0.3.2 && \
     pip install tornado==4.5.3 --upgrade --force-reinstall && \
     ln -s /usr/bin/python2.7 /usr/bin/python ; ln -s -f bash /bin/sh
-
+#5e6f08c13efc8ab425b77debcb33bae13dc6b31e
 #ln: failed to create symbolic link '/usr/bin/python': File exists
 #debconf: delaying package configuration, since apt-utils is not installed
 
@@ -141,7 +141,11 @@ RUN mkdir /asr-input
 RUN mkdir /asr-output
 
 #for testing a DAAN video
-COPY DANSTUMEE____-HRE000053D0.mp4 /input-files/DANSTUMEE____-HRE000053D0.mp4
-COPY 1272-128104-0000.wav /input-files/1272-128104-0000.wav
+#COPY DANSTUMEE____-HRE000053D0.mp4 /input-files/DANSTUMEE____-HRE000053D0.mp4
+#COPY 1272-128104-0000.wav /input-files/1272-128104-0000.wav
 
+#start the dane worker
 CMD ["python3","-u","/src/worker.py"]
+
+#start the debug service
+CMD ["python3","-u","/src/asr-debug-service/server.py"]
