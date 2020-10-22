@@ -123,14 +123,7 @@ RUN  cd /opt && tar -xvzf Kaldi_NL.tar.gz && rm Kaldi_NL.tar.gz && \
 RUN apt-get install -y \
     ffmpeg
 
-COPY ./ /src
-
-#RUN pip3 install pipenv
-#RUN pipenv --python=/usr/bin/python3
-#RUN pipenv shell
-#RUN pipenv install
-# COPY Pipfile /tmp
-# RUN cd /tmp && pipenv lock --requirements > requirements.txt
+COPY ./src /src
 
 COPY requirements.txt /src/
 RUN pip3 install -r /src/requirements.txt
@@ -140,12 +133,8 @@ RUN mkdir /output-files
 RUN mkdir /asr-input
 RUN mkdir /asr-output
 
-#for testing a DAAN video
-#COPY DANSTUMEE____-HRE000053D0.mp4 /input-files/DANSTUMEE____-HRE000053D0.mp4
-#COPY 1272-128104-0000.wav /input-files/1272-128104-0000.wav
-
 #start the dane worker
-CMD ["python3","-u","/src/worker.py"]
+#CMD ["python3","-u","/src/worker.py"]
 
 #start the debug service
-CMD ["python3","-u","/src/asr-debug-service/server.py"]
+CMD ["python3","-u","/src/server.py"]
