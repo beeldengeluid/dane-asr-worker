@@ -1,5 +1,9 @@
 import subprocess
 
+"""
+This module supplies the function for transcoding valid video files into mp3 format (i.e. valid input for Kaldi)
+"""
+
 def transcode_to_mp3(path, asr_path):
 	print("Encoding file")
 	cmd = "ffmpeg -i {0} {1}".format(path, asr_path)

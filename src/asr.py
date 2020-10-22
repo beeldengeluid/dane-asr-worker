@@ -4,9 +4,22 @@ import tarfile
 import glob
 import json
 
+"""
+This module contains functions for running audio files through Kaldi_NL to generate a speech transcript.
+
+Moreover this module has functions for:
+- validating the ASR output
+- generating a JSON file (based on the 1Best.ctm transcript file)
+- packaging the ASR output (as a tar)
+
+For now this module defines its own input and output dirs (TODO move this up to the settings.py)
+"""
+
 ASR_INPUT = 'asr-input'
 ASR_OUTPUT = 'asr-output'
 ASR_PACKAGE_NAME = 'asr-features.tar.gz'
+ASR_TRANSCRIPT_FILE = '1Best.ctm'
+WORD_JSON_FILE = 'words.json'
 
 #runs the asr on the input path and puts the results in the ASR_OUTPUT dir
 def run_asr(input_path, asset_id):
@@ -23,7 +36,7 @@ def process_asr_output(asset_id):
 	print('processing the output of {0}'.format(asset_id))
 
 	if validate_asr_output(asset_id) == False:
-		return {'state': 500, 'message': 'error: ASR output did not contain a 1Best.ctm file'}
+		return {'state': 500, 'message': 'error: ASR output did not yield a transcript file'}
 
 	#create a word.json file
 	create_word_json(asset_id, True)
@@ -34,17 +47,22 @@ def process_asr_output(asset_id):
 #if there is no 1Best.ctm there is something wrong with the input file or Kaldi...
 #TODO also check if the files and dir for package_output are there
 def validate_asr_output(asset_id):
-	return os.path.isfile(__to_transcript_path(asset_id))
+	return os.path.isfile(__get_transcript_file_path(asset_id))
 
 #packages the features and the human readable output (1Best.*)
 def package_output(asset_id):
+	output_dir = get_output_dir(asset_id)
 	files_to_be_added = [
-		'/{0}/{1}/liumlog/*.seg'.format(ASR_OUTPUT, asset_id),
-		'/{0}/{1}/1Best.*'.format(ASR_OUTPUT, asset_id),
-		'/{0}/{1}/intermediate/decode/*'.format(ASR_OUTPUT, asset_id)
+		'/{0}/liumlog/*.seg'.format(output_dir),
+		'/{0}/1Best.*'.format(output_dir),
+		'/{0}/intermediate/decode/*'.format(output_dir)
 	]
 
-	tar_path = os.path.join(os.sep, ASR_OUTPUT, asset_id + ASR_PACKAGE_NAME)
+	#also add the words json file if it was generated
+	if os.path.exists(__get_words_file_path(asset_id)):
+		files_to_be_added.append(__get_words_file_path(asset_id))
+
+	tar_path = os.path.join(os.sep, output_dir, ASR_PACKAGE_NAME)
 	tar = tarfile.open(tar_path, "w:gz")
 
 	for pattern in files_to_be_added:
@@ -55,7 +73,7 @@ def package_output(asset_id):
 	tar.close()
 
 def create_word_json(asset_id, save_in_asr_output=False):
-	transcript = __to_transcript_path(asset_id)
+	transcript = __get_transcript_file_path(asset_id)
 	word_json = []
 	with open(transcript, encoding='utf-8', mode='r') as file:
 		for line in file.readlines():
@@ -71,11 +89,17 @@ def create_word_json(asset_id, save_in_asr_output=False):
 			word_json.append(json_entry)
 
 	if save_in_asr_output:
-		with open(os.path.join(os.sep, ASR_OUTPUT, asset_id, asset_id + "_asr.json"), 'w+') as outfile:
+		with open(__get_words_file_path(asset_id), 'w+') as outfile:
 			json.dump(word_json, outfile, indent=4)
 
 	print(json.dumps(word_json, indent=4, sort_keys=True))
 	return word_json
 
-def __to_transcript_path(asset_id):
-	return os.path.join(os.sep, ASR_OUTPUT, asset_id, '1Best.ctm')
+def get_output_dir(asset_id):
+	return os.path.join(os.sep, ASR_OUTPUT, asset_id)
+
+def __get_transcript_file_path(asset_id):
+	return os.path.join(os.sep, get_output_dir(asset_id), ASR_TRANSCRIPT_FILE)
+
+def __get_words_file_path(asset_id):
+	return os.path.join(os.sep, get_output_dir(asset_id), WORD_JSON_FILE)

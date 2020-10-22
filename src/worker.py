@@ -6,6 +6,15 @@ import os
 
 from work_processor import process_input_file
 
+"""
+This class implements a DANE worker and thus serves as the process receiving tasks from DANE
+
+This particular worker only picks up work from the ASR queue and only will go ahead with (ASR) processing
+audiovisual input.
+
+The input file is obtained by requesting the file path from the document index. This file path SHOULD have been
+made available by the download worker (before the task was received in this worker)
+"""
 
 class asr_worker(DANE.base_classes.base_worker):
 
@@ -25,7 +34,6 @@ class asr_worker(DANE.base_classes.base_worker):
 		)
 		"""
 
-		#self.vid_file = '/Users/jblom/temp/asr_test.mp4'
 		self.config = config
 		self.test_run()
 

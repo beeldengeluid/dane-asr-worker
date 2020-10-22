@@ -4,6 +4,17 @@ import shutil
 from asr import run_asr, process_asr_output, create_word_json, ASR_INPUT, ASR_OUTPUT
 from transcode import transcode_to_mp3
 
+"""
+This module contains all the specific processing functions for the DANE-asr-worker. The reason
+to separate it from worker.py is so it can also be called via the server.py (debugging UI)
+
+The processing consists of:
+- validating the input file (provided by the download worker)
+- if it is an audio file: simply run ASR (see module: asr.py)
+- if not: first transcode it (see module: transcode.py)
+- finally: package the ASR output into a tar.gz (optional)
+"""
+
 def process_input_file(input_file_path):
 	print('analyzing the input file path')
 
