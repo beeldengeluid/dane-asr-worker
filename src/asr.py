@@ -4,7 +4,7 @@ import tarfile
 import glob
 import json
 
-from settings import ASR_OUTPUT_DIR, ASR_PACKAGE_NAME, ASR_WORD_JSON_FILE
+from settings import ASR_OUTPUT_DIR, ASR_PACKAGE_NAME, ASR_WORD_JSON_FILE, KALDI_NL_DIR, KALDI_NL_DECODER
 
 """
 This module contains functions for running audio files through Kaldi_NL to generate a speech transcript.
@@ -20,7 +20,13 @@ ASR_TRANSCRIPT_FILE = '1Best.ctm'
 #runs the asr on the input path and puts the results in the ASR_OUTPUT_DIR dir
 def run_asr(input_path, asset_id):
 	print("Starting ASR")
-	cmd = "cd /opt/Kaldi_NL; ./decode.sh {0} /{1}/{2}".format(input_path, ASR_OUTPUT_DIR, asset_id)
+	cmd = "cd {0}; ./{1} {2} /{3}/{4}".format(
+		KALDI_NL_DIR,
+		KALDI_NL_DECODER,
+		input_path,
+		ASR_OUTPUT_DIR,
+		asset_id
+	)
 	print(cmd)
 	process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
 	stdout = process.communicate()[0]  # wait until finished. Remove stdout stuff if letting run in background and continue.
