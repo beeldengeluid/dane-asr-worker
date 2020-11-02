@@ -1,0 +1,1 @@
+docker run --rm -d --hostname danerabbit --name danermq rabbitmq:3

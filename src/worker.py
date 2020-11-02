@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
 	"""
 	#create some dummy task & document
-	t = Task('Video.ASR', priority=1, _id = None, api = None, state=None, msg=None)
+	t = Task('ASR', priority=1, _id = None, api = None, state=None, msg=None)
 	d = Document({
 			'id' : '',
 			'url' : '',
