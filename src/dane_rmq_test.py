@@ -60,8 +60,8 @@ def simulate_dane_worker():
     connection = get_rmq_connection()
     print('going to consume')
     channel = connection.channel()
-    channel.exchange_declare(config.EXCHANGE)
-    channel.queue_declare(queue=config.RESPONSE_QUEUE)
+    channel.exchange_declare(config.EXCHANGE, exchange_type='topic')
+    channel.queue_declare(queue=config.RESPONSE_QUEUE, durable=True, arguments={'x-max-priority': 10})
     channel.queue_bind(
         exchange=config.EXCHANGE,
         queue=config.RESPONSE_QUEUE,
@@ -70,7 +70,7 @@ def simulate_dane_worker():
     channel.basic_consume(
         queue=config.RESPONSE_QUEUE,
         on_message_callback=on_response,
-        auto_ack=True) #set to false if you want to really make sure the job gets done before ACKing
+        auto_ack=False) #set to false if you want to really make sure the job gets done before ACKing
 
     try:
         channel.start_consuming()

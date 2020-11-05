@@ -21,21 +21,19 @@ class asr_worker(DANE.base_classes.base_worker):
 	def __init__(self, config):
 		 # we specify a queue name because every worker of this type should
 		# listen to the same queue
-		self.__queue_name = 'ASR'
-		self.__binding_key = '#.ASR'#['Video.ASR', 'Sound.ASR']
+		self.__queue_name = config.RABBITMQ.RESPONSE_QUEUE #'ASR'
+		self.__binding_key = "#.ASR" #['Video.ASR', 'Sound.ASR']#'#.ASR'
 		self.__depends_on = ['DOWNLOAD']
 
-		"""
 		super().__init__(
-			queue=self.__queue_name,
-			binding_key=self.__binding_key,
-			depends_on=self.__depends_on,
-			config=config
+			self.__queue_name,
+			self.__binding_key,
+			config,
+			self.__depends_on
 		)
-		"""
 
 		self.config = config
-		self.test_run()
+		#self.test_run()
 
 	def test_run(self):
 		print('DOING A TEST RUN')
@@ -44,6 +42,9 @@ class asr_worker(DANE.base_classes.base_worker):
 
 	#DANE callback function, called whenever there is a job for this worker
 	def callback(self, task, doc):
+		print('receiving a task from the DANE (mock) server!')
+		print(task)
+		print(doc)
 		"""
 		try:
 			possibles = self.handler.searchResult(doc._id, 'DOWNLOAD')
@@ -53,10 +54,16 @@ class asr_worker(DANE.base_classes.base_worker):
 				'message': "No DOWNLOAD result found"}
 		"""
 		#print('processing video file %s' % self.config.ASR.VIDEO_TEST_FILE)
-		return process_input_file(vid_file)
+		#return process_input_file(vid_file)
 
 if __name__ == '__main__':
 	w = asr_worker(cfg)
+
+	print(' # Initialising worker. Ctrl+C to exit')
+	try:
+		w.run()
+	except (KeyboardInterrupt, SystemExit):
+		w.stop()
 
 	"""
 	#create some dummy task & document

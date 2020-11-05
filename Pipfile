@@ -6,9 +6,9 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-dane = "*"
 requests = "*"
 flask = "*"
+dane = "*"
 
 [requires]
 python_version = "3.7"
