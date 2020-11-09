@@ -21,15 +21,17 @@ class asr_worker(DANE.base_classes.base_worker):
 	def __init__(self, config):
 		 # we specify a queue name because every worker of this type should
 		# listen to the same queue
-		self.__queue_name = config.RABBITMQ.RESPONSE_QUEUE #'ASR'
+		self.__queue_name = 'ASR' #this is the queue that receives the work and NOT the reply queue
 		self.__binding_key = "#.ASR" #['Video.ASR', 'Sound.ASR']#'#.ASR'
-		self.__depends_on = ['DOWNLOAD']
+		self.__depends_on = [] #['DOWNLOAD']
 
 		super().__init__(
 			self.__queue_name,
 			self.__binding_key,
 			config,
-			self.__depends_on
+			self.__depends_on,
+			True, #auto_connect
+			True #no_api
 		)
 
 		self.config = config
@@ -45,6 +47,10 @@ class asr_worker(DANE.base_classes.base_worker):
 		print('receiving a task from the DANE (mock) server!')
 		print(task)
 		print(doc)
+
+		print('PROCESSING TASK ON DOC')
+		resp = process_input_file(doc.target['url'])
+		print(json.dumps(resp, indent=4, sort_keys=True))
 		"""
 		try:
 			possibles = self.handler.searchResult(doc._id, 'DOWNLOAD')
@@ -55,6 +61,7 @@ class asr_worker(DANE.base_classes.base_worker):
 		"""
 		#print('processing video file %s' % self.config.ASR.VIDEO_TEST_FILE)
 		#return process_input_file(vid_file)
+		return {'state': 200, 'message': 'Success'}
 
 if __name__ == '__main__':
 	w = asr_worker(cfg)

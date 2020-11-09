@@ -6,6 +6,7 @@ from DANE.config import cfg
 
 config = cfg.RABBITMQ
 ROUTING_KEY = '#.ASR'
+ASR_QUEUE = 'ASR'
 
 def get_rmq_connection():
     credentials = pika.PlainCredentials(
@@ -39,7 +40,7 @@ def simulate_dane_request():
     )
 
     print('now publishing the task on the channel')
-
+    print(task.to_json())
     channel = connection.channel()
     corr_id = str(uuid.uuid4())
     channel.basic_publish(
@@ -52,11 +53,33 @@ def simulate_dane_request():
         body=json.dumps({
             # flipflop between json and object is intentional
             # but maybe not most elegant way..
-            'task': json.loads(task.to_json())['task'],
+            'task': json.loads(task.to_json()),
             'document': json.loads(document.to_json())
             }))
 
 def simulate_dane_worker():
+    connection = get_rmq_connection()
+    print('going to consume')
+    channel = connection.channel()
+    channel.exchange_declare(config.EXCHANGE, exchange_type='topic')
+    channel.queue_declare(queue=ASR_QUEUE, durable=True, arguments={'x-max-priority': 10})
+    channel.queue_bind(
+        exchange=config.EXCHANGE,
+        queue=ASR_QUEUE,
+        routing_key=ROUTING_KEY
+    )
+    channel.basic_consume(
+        queue=ASR_QUEUE,
+        on_message_callback=on_response,
+        auto_ack=False) #set to false if you want to really make sure the job gets done before ACKing
+
+    try:
+        channel.start_consuming()
+    except KeyboardInterrupt as e:
+        channel.stop_consuming()
+    print('DONENENEN')
+
+def simulate_dane_msg_queue():
     connection = get_rmq_connection()
     print('going to consume')
     channel = connection.channel()
@@ -92,8 +115,10 @@ if __name__ == '__main__':
     parser.add_argument("mode", help="use 0 to simulate the producer and 1 to simulate the DANE worker")
     args = parser.parse_args()
     if args.mode == '1':
-        simulate_dane_worker()
+        simulate_dane_msg_queue()
     elif args.mode == '0':
         simulate_dane_request()
+    elif args.mode == '2    ':
+        simulate_dane_worker()
     else:
         print('invalid param, exiting')
