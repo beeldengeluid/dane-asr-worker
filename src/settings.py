@@ -1,6 +1,6 @@
 #debug service settings (settings.py)
 APP_HOST = '0.0.0.0'
-APP_PORT = 5000 #Note: also change start-container.sh if you change this value!
+APP_PORT = 5002 #Note: also change start-container.sh if you change this value!
 
 #asr module settings (asr.py)
 ASR_OUTPUT_DIR = 'asr-output'
