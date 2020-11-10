@@ -33,4 +33,5 @@ RUN sudo mkdir /asr-output
 ENV KALDI_ROOT=/usr/local/opt/kaldi
 
 #start the dane worker
-CMD ["python3","-u","/src/worker.py"]
+#CMD ["python3","-u","/src/worker.py"]
+CMD ["python3","-u","/src/server.py"]
