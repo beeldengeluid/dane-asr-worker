@@ -19,7 +19,7 @@ def process_input_file(input_file_path):
 	print('analyzing the input file path')
 
 	if not os.path.isfile(input_file_path):  # check if inputfile exists
-		return {'state': 404, 'message': 'No file found at file location'}
+		return {'state': 404, 'message': 'No file found at file location {0}'.format(input_file_path)}
 
 	#grab the file_name from the path
 	file_name = ntpath.basename(input_file_path)
