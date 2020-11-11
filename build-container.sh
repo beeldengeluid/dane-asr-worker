@@ -10,6 +10,7 @@ if [ $? -eq 0 ]
 then
   echo "Success: built the DANE / Lamachine / Kaldi_NL docker image"
   export DANE_ASR_IMAGE=$IMAGE_NAME
+  echo "Your docker image name is now stored in your environment in DANE_ASR_IMAGE"
   exit 0
 else
   echo "Failure: something went wrong while building the docker image" >&2
