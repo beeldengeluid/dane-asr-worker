@@ -1,15 +1,15 @@
 #!/bin/bash
 
-IMAGE_NAME=${1:-"dane-la-kaldi"}
+DANE_DOCKER_IMAGE=${1:-"dane-la-kaldi"}
 
-echo $IMAGE_NAME
+echo $DANE_DOCKER_IMAGE
 
-docker build -t $IMAGE_NAME .
+docker build -t $DANE_DOCKER_IMAGE .
 
 if [ $? -eq 0 ]
 then
   echo "Success: built the DANE / Lamachine / Kaldi_NL docker image"
-  export DANE_ASR_IMAGE=$IMAGE_NAME
+  export DANE_DOCKER_IMAGE=$DANE_DOCKER_IMAGE
   echo "Your docker image name is now stored in your environment in DANE_ASR_IMAGE"
   exit 0
 else

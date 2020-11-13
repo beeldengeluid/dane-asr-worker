@@ -27,6 +27,7 @@ class ProcessEndpoint(Resource):
 
 	#@api.response(200, 'Success', processResponse)
 	def get(self):
+		#TODO build in arg: wait_for_completion
 		input_file = request.args.get('input_file', None)
 		if input_file:
 			resp = process_input_file(os.path.join(os.sep, 'input-files', input_file))

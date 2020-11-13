@@ -49,8 +49,19 @@ class asr_worker(DANE.base_classes.base_worker):
 		print(doc)
 
 		print('PROCESSING TASK ON DOC')
-		resp = process_input_file(doc.target['url'])
-		print(json.dumps(resp, indent=4, sort_keys=True))
+		"""------------------------------------------------
+		TO IMPLEMENT:
+		- call the ASR via a GET. Get a file name back
+		- keep checking the file for status update
+		- (use https://medium.com/@aliasav/how-follow-a-file-in-python-tail-f-in-python-bca026a901cf)
+		------------------------------------------------"""
+
+
+
+		#resp = process_input_file(doc.target['url'])
+		#print(json.dumps(resp, indent=4, sort_keys=True))
+
+
 		"""
 		try:
 			possibles = self.handler.searchResult(doc._id, 'DOWNLOAD')

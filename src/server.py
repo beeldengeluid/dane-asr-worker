@@ -31,17 +31,15 @@ def ping():
 """------------------------------------------------------------------------------
 REGULAR ROUTING (STATIC CONTENT)
 ------------------------------------------------------------------------------"""
-@app.route('/')
+@app.route('/debug')
 def home():
 	return render_template('index.html')
 
-"""
-@app.route('/process', methods=['POST'])
-def process():
+@app.route('/process-debug', methods=['POST'])
+def debug():
 	input_file = request.form.get('input_file', None)
 	resp = process_input_file(os.path.join(os.sep, 'input-files', input_file))
 	return Response(json.dumps(resp), mimetype='application/json')
-"""
 
 if __name__ == '__main__':
 	app.run(host=APP_HOST, port=APP_PORT)

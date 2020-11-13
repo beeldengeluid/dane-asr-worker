@@ -1,2 +1,1 @@
-#docker run --rm -d --hostname danerabbit -p 5672:5672 -p 15672:15672 --name danermq rabbitmq:3
 docker run --rm -it --hostname dane-rabbit -p 15672:15672 -p 5672:5672 --name danermq rabbitmq:3-management
