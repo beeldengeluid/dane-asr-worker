@@ -3,8 +3,9 @@ from DANE.config import cfg
 from DANE import Result, Task, Document
 import json
 import os
+import subprocess
 
-from work_processor import process_input_file
+#from work_processor import process_input_file
 
 """
 This class implements a DANE worker and thus serves as the process receiving tasks from DANE
@@ -19,11 +20,27 @@ made available by the download worker (before the task was received in this work
 class asr_worker(DANE.base_classes.base_worker):
 
 	def __init__(self, config):
+		self.config = config
 		 # we specify a queue name because every worker of this type should
 		# listen to the same queue
 		self.__queue_name = 'ASR' #this is the queue that receives the work and NOT the reply queue
 		self.__binding_key = "#.ASR" #['Video.ASR', 'Sound.ASR']#'#.ASR'
 		self.__depends_on = [] #['DOWNLOAD']
+
+		if not self.validate_config():
+			print('ERROR: Invalid config, aborting')
+			quit()
+
+		if config.DEBUG:
+			if not self.init_rabbitmq_container():
+				print('ERROR: Could not start in debug mode, RabbitMQ container could not be started, aborting...')
+				quit()
+			else:
+				print('great!')
+
+		if not self.init_asr_container():
+			print('ERROR: Could not start speech recognition service, aborting')
+			quit()
 
 		super().__init__(
 			self.__queue_name,
@@ -33,9 +50,25 @@ class asr_worker(DANE.base_classes.base_worker):
 			True, #auto_connect
 			True #no_api
 		)
-
-		self.config = config
 		#self.test_run()
+
+	def validate_config(self):
+		return True
+
+	def __docker_container_runs(self, container_name):
+		cmd = ['docker', 'container', 'inspect', '-f', "'{{.State.Status}}'", container_name]
+		print(' '.join(cmd))
+		process = subprocess.Popen(' '.join(cmd), stdout=subprocess.PIPE, shell=True)
+		stdout = process.communicate()[0]  # wait until finished. Remove stdout stuff if letting run in background and continue.
+		return str(stdout).find('running') != -1
+
+	def init_rabbitmq_container(self):
+		print('Checking if the RabbitMQ container (named {0}) is running'.format(self.config.DOCKER.RABBITMQ_CONTAINER))
+		return self.__docker_container_runs(self.config.DOCKER.RABBITMQ_CONTAINER)
+
+	def init_asr_container(self):
+		print('Checking if the ASR container (named {0}) is running'.format(self.config.DOCKER.ASR_CONTAINER))
+		return self.__docker_container_runs(self.config.DOCKER.ASR_CONTAINER)
 
 	def test_run(self):
 		print('DOING A TEST RUN')

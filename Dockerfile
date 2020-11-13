@@ -19,7 +19,7 @@ RUN sudo apt-get install -y \
     ffmpeg
 
 # add the Python code & install the required libs
-COPY ./src /src
+COPY ./src/docker_src /src
 COPY requirements.txt /src/
 RUN pip3 install -r /src/requirements.txt
 
