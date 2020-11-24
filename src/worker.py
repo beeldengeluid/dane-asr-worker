@@ -3,7 +3,8 @@ from DANE.config import cfg
 from DANE import Result, Task, Document
 import json
 import os
-import subprocess
+import subprocess #used for calling cmd line to check if the required docker containers are up
+import requests #for communicating with the ASR container's API
 
 #from work_processor import process_input_file
 
@@ -15,6 +16,8 @@ audiovisual input.
 
 The input file is obtained by requesting the file path from the document index. This file path SHOULD have been
 made available by the download worker (before the task was received in this worker)
+
+TODO catch pika.exceptions.ConnectionClosedByBroker in case the rabbitMQ is not available
 """
 
 class asr_worker(DANE.base_classes.base_worker):
@@ -39,8 +42,9 @@ class asr_worker(DANE.base_classes.base_worker):
 				print('great!')
 
 		if not self.init_asr_container():
-			print('ERROR: Could not start speech recognition service, aborting')
-			quit()
+			#print('ERROR: Could not start speech recognition service, aborting')
+			print('ERROR: Could not start speech recognition service, but continuing anyway')
+			#quit()
 
 		super().__init__(
 			self.__queue_name,
@@ -81,7 +85,29 @@ class asr_worker(DANE.base_classes.base_worker):
 		print(task)
 		print(doc)
 
-		print('PROCESSING TASK ON DOC')
+
+		resp = requests.get('http://{0}:{1}/api/{2}?input_file={3}&wait_for_completion=1'.format(
+			self.config.ASR_API.HOST,
+			self.config.ASR_API.PORT,
+			'process-simulation', #replace later with process
+			'ob_test.mp3'
+		))
+
+		print(resp.text)
+
+		"""
+		if resp.status_code == 200:
+			return {'state': 200, 'message': resp.text}
+		"""
+
+		try:
+			return json.loads(resp.text)
+		except Exception as e:
+			pass
+		return {'state': 500, 'message': 'Failure'}
+
+
+		#print('PROCESSING TASK ON DOC')
 		"""------------------------------------------------
 		TO IMPLEMENT:
 		- call the ASR via a GET. Get a file name back
@@ -105,7 +131,7 @@ class asr_worker(DANE.base_classes.base_worker):
 		"""
 		#print('processing video file %s' % self.config.ASR.VIDEO_TEST_FILE)
 		#return process_input_file(vid_file)
-		return {'state': 200, 'message': 'Success'}
+		#return {'state': 200, 'message': 'Success'}
 
 if __name__ == '__main__':
 	w = asr_worker(cfg)
