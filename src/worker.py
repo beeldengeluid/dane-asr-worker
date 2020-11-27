@@ -28,7 +28,8 @@ class asr_worker(DANE.base_classes.base_worker):
 		# listen to the same queue
 		self.__queue_name = 'ASR' #this is the queue that receives the work and NOT the reply queue
 		self.__binding_key = "#.ASR" #['Video.ASR', 'Sound.ASR']#'#.ASR'
-		self.__depends_on = [] #['DOWNLOAD']
+		#['DOWNLOAD'] TODO Nanne will support adding params to this, so it's possible to override the default Task being generated for the downloader
+		self.__depends_on = []
 
 		if not self.validate_config():
 			print('ERROR: Invalid config, aborting')
@@ -52,7 +53,7 @@ class asr_worker(DANE.base_classes.base_worker):
 			config,
 			self.__depends_on,
 			True, #auto_connect
-			True #no_api
+			False #no_api
 		)
 		#self.test_run()
 
@@ -85,15 +86,21 @@ class asr_worker(DANE.base_classes.base_worker):
 		print(task)
 		print(doc)
 
+		try:
+			resp = requests.get('http://{0}:{1}/api/{2}?input_file={3}&wait_for_completion=1'.format(
+				self.config.ASR_API.HOST,
+				self.config.ASR_API.PORT,
+				'process-simulation', #replace later with process
+				'ob_test.mp3'
+			))
+		except requests.exceptions.ConnectionError as e:
+			print('Could not connect to the ASR container. Damn shame kid, but now we are going to fake it')
+			self.save_dummy_result(task)
+			return {'state': 200, 'message': 'Success'}
 
-		resp = requests.get('http://{0}:{1}/api/{2}?input_file={3}&wait_for_completion=1'.format(
-			self.config.ASR_API.HOST,
-			self.config.ASR_API.PORT,
-			'process-simulation', #replace later with process
-			'ob_test.mp3'
-		))
+		print('why am I here?')
 
-		print(resp.text)
+		#print(resp.text)
 
 		"""
 		if resp.status_code == 200:
@@ -132,6 +139,25 @@ class asr_worker(DANE.base_classes.base_worker):
 		#print('processing video file %s' % self.config.ASR.VIDEO_TEST_FILE)
 		#return process_input_file(vid_file)
 		#return {'state': 200, 'message': 'Success'}
+
+	#TODO check how to generate the index document right here, so indexing it within the actual catalogue is much easier
+	#NOTE for openbeelden, it should be indexed in the ODL on ES7 in the amazon cluster
+	#NOTE for DAAN, it should be indexed within the ES5 cluster (for now)
+	def save_dummy_result(self, task):
+		r = Result(
+			self.generator,
+			payload={
+				"wordTimes": [ 300,1710,1920,2100,2580,3390,3660,4260,5550,5880,6360,7200,7770,8220,8400,8490],
+				"sequenceNr": 0,
+				"start": 0,
+				"fragmentId": "0001",
+				"words": "Zojuist op haar laatste verjaardag als regerend vorstin heeft koningin juliana afstand gedaan van de troon.",
+				"carrierId": "NIET_BEKEND__-AEN557540L7"
+			},
+			api=self.handler
+		)
+		# Now save the result
+		r.save(task._id)
 
 if __name__ == '__main__':
 	w = asr_worker(cfg)

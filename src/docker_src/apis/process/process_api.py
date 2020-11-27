@@ -63,7 +63,9 @@ class ProcessEndpoint(Resource):
 				print('waiting for a bit')
 				sleep(20) # wait for 20 seconds (* sound of fake asr running *)
 				print('I have awakened')
-			return {'status' : 'success'}, 200, {}
+				return {'status' : 'success'}, 200, {}
+			else
+				return {'code' : '123456'}
 		else:
 			return {'status' : 'error: bad params'}, 400, {}
 		return {'status' : 'error'}, 500, {}
