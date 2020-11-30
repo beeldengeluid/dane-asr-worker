@@ -5,6 +5,8 @@ import json
 import os
 import subprocess #used for calling cmd line to check if the required docker containers are up
 import requests #for communicating with the ASR container's API
+from time import sleep
+import hashlib
 
 #from work_processor import process_input_file
 
@@ -85,20 +87,35 @@ class asr_worker(DANE.base_classes.base_worker):
 		print('receiving a task from the DANE (mock) server!')
 		print(task)
 		print(doc)
+		input_file = 'ob_test.mp3'
 
 		try:
-			resp = requests.get('http://{0}:{1}/api/{2}?input_file={3}&wait_for_completion=1'.format(
+			resp = requests.put('http://{0}:{1}/api/{2}/{3}?input_file={4}&wait_for_completion=0'.format(
 				self.config.ASR_API.HOST,
 				self.config.ASR_API.PORT,
 				'process-simulation', #replace later with process
-				'ob_test.mp3'
+				hashlib.sha224(b"{0}".format(input_file)).hexdigest(),
+				input_file
 			))
 		except requests.exceptions.ConnectionError as e:
-			print('Could not connect to the ASR container. Damn shame kid, but now we are going to fake it')
-			self.save_dummy_result(task)
-			return {'state': 200, 'message': 'Success'}
+			#print('Could not connect to the ASR container. Damn shame kid, but now we are going to fake it')
+			#self.save_dummy_result(task)
+			return {'state': 500, 'message': 'Failure: the ASR service failed to process your request'}
 
-		print('why am I here?')
+		print(resp.text)
+
+		print('now waiting for the ASR job to finish')
+		"""
+		while(True):
+			resp = requests.get('http://{0}:{1}/api/{2}/{3}'.format(
+				self.config.ASR_API.HOST,
+				self.config.ASR_API.PORT,
+				'process-simulation', #replace later with process
+				hashlib.sha224(b"{0}".format(input_file)).hexdigest()
+			))
+			print(resp)
+			break
+		"""
 
 		#print(resp.text)
 
@@ -106,12 +123,13 @@ class asr_worker(DANE.base_classes.base_worker):
 		if resp.status_code == 200:
 			return {'state': 200, 'message': resp.text}
 		"""
-
+		"""
 		try:
 			return json.loads(resp.text)
 		except Exception as e:
 			pass
 		return {'state': 500, 'message': 'Failure'}
+		"""
 
 
 		#print('PROCESSING TASK ON DOC')

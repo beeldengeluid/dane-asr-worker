@@ -4,11 +4,12 @@ from flask import request, Response
 
 import os
 import json
-from settings import APP_HOST, APP_PORT
+from settings import APP_HOST, APP_PORT, PID_CACHE_DIR
 from work_processor import process_input_file
 from apis import api
 
 app = Flask(__name__)
+app.config['PID_CACHE_DIR'] = PID_CACHE_DIR
 
 api.init_app(
 	app,
