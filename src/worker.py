@@ -88,13 +88,14 @@ class asr_worker(DANE.base_classes.base_worker):
 		print(task)
 		print(doc)
 		input_file = 'ob_test.mp3'
+		input_hash = hashlib.sha224("{0}".format(input_file).encode('utf-8')).hexdigest()
 
 		try:
 			resp = requests.put('http://{0}:{1}/api/{2}/{3}?input_file={4}&wait_for_completion=0'.format(
 				self.config.ASR_API.HOST,
 				self.config.ASR_API.PORT,
 				'process-simulation', #replace later with process
-				hashlib.sha224(b"{0}".format(input_file)).hexdigest(),
+				input_hash,
 				input_file
 			))
 		except requests.exceptions.ConnectionError as e:
@@ -105,17 +106,22 @@ class asr_worker(DANE.base_classes.base_worker):
 		print(resp.text)
 
 		print('now waiting for the ASR job to finish')
-		"""
+
 		while(True):
 			resp = requests.get('http://{0}:{1}/api/{2}/{3}'.format(
 				self.config.ASR_API.HOST,
 				self.config.ASR_API.PORT,
 				'process-simulation', #replace later with process
-				hashlib.sha224(b"{0}".format(input_file)).hexdigest()
+				input_hash
 			))
-			print(resp)
-			break
-		"""
+			status = json.loads(resp.text)['status']
+			print(status)
+			if status == 'finished':
+				print('yay the job is done!')
+				break
+
+			sleep(1)
+
 
 		#print(resp.text)
 
