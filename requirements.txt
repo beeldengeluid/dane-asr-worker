@@ -2,7 +2,7 @@ aniso8601==8.0.0
 attrs==20.3.0
 certifi==2020.11.8
 chardet==3.0.4
-click==7.1.2
+click==*
 DANE==0.2.3
 elasticsearch==7.9.1
 Flask==1.1.2
