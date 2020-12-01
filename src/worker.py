@@ -5,6 +5,7 @@ import json
 import os
 import subprocess #used for calling cmd line to check if the required docker containers are up
 import requests #for communicating with the ASR container's API
+from urllib.parse import urlparse
 from time import sleep
 import hashlib
 
@@ -82,14 +83,40 @@ class asr_worker(DANE.base_classes.base_worker):
 		resp = process_input_file(os.path.join(os.sep, 'input-files', self.config.ASR.VIDEO_TEST_FILE))
 		print(json.dumps(resp, indent=4, sort_keys=True))
 
-	#DANE callback function, called whenever there is a job for this worker
-	def callback(self, task, doc):
-		print('receiving a task from the DANE (mock) server!')
-		print(task)
-		print(doc)
-		input_file = 'ob_test.mp3'
-		input_hash = hashlib.sha224("{0}".format(input_file).encode('utf-8')).hexdigest()
+	# https://www.openbeelden.nl/files/29/29494.29451.WEEKNUMMER243-HRE00015742.mp4
+	def download_content(self, doc):
+		if not doc.target or not 'url' in doc.target or not doc.target['url']:
+			print('No url found in doc')
+			return None
 
+		print('downloading {0}'.format(doc.target['url']))
+		fn = os.path.basename(urlparse(doc.target['url']).path)
+		print('saving to file {0}'.format(fn))
+		# open in binary mode
+		with open(os.path.join(self.config.DOWNLOAD.LOCAL_DIR, fn), "wb") as file:
+			# get request
+			response = requests.get(doc.target['url'])
+			# write to file
+			file.write(response.content)
+			file.close()
+		return fn
+
+	def fetch_downloaded_content(self, doc):
+		print('checking download worker output')
+		try:
+			possibles = self.handler.searchResult(doc._id, 'DOWNLOAD')
+			print(possibles)
+			return possibles[0].payload['file_path']
+		except KeyError as e:
+			print(e)
+
+		return None
+
+	def hash_string(self, s):
+		return hashlib.sha224("{0}".format(s).encode('utf-8')).hexdigest()
+
+	def submit_asr_job(self, input_file, input_hash):
+		print('Going to submit {0} to the ASR service'.format(input_file))
 		try:
 			resp = requests.put('http://{0}:{1}/api/{2}/{3}?input_file={4}&wait_for_completion=0'.format(
 				self.config.ASR_API.HOST,
@@ -118,24 +145,34 @@ class asr_worker(DANE.base_classes.base_worker):
 			print(status)
 			if status == 'finished':
 				print('yay the job is done!')
-				break
-
+				return {'state' : 200, 'message' : 'Successfully yielded a speech transcript for {0}'.format(input_file)}
 			sleep(1)
+		return {'state' : 500, 'message' : 'Failed to generate a speech transcript for {0}'.format(input_file)}
 
+	#DANE callback function, called whenever there is a job for this worker
+	def callback(self, task, doc):
+		print('receiving a task from the DANE (mock) server!')
+		print(task)
+		print(doc)
 
-		#print(resp.text)
+		# step 1 (temporary, until DOWNLOAD depency accepts params to override download dir)
+		input_file = self.fetch_downloaded_content(doc) if self.config.DOWNLOAD.USE_DANE_DOWNLOADER else None
 
-		"""
-		if resp.status_code == 200:
-			return {'state': 200, 'message': resp.text}
-		"""
-		"""
-		try:
-			return json.loads(resp.text)
-		except Exception as e:
-			pass
-		return {'state': 500, 'message': 'Failure'}
-		"""
+		if input_file == None:
+			print('The file was not downloaded by the DANE worker, downloading it myself...')
+			input_file = self.download_content(doc)
+			if input_file == None:
+				return {'state' : 500, 'message' : 'Could not download the document content'}
+
+		# step 2 create hash of input file to use for progress tracking
+		input_hash = self.hash_string(input_file)
+
+		# step 3
+		result = self.submit_asr_job(input_file, input_hash)
+
+		print(result)
+
+		return result
 
 
 		#print('PROCESSING TASK ON DOC')
@@ -146,23 +183,9 @@ class asr_worker(DANE.base_classes.base_worker):
 		- (use https://medium.com/@aliasav/how-follow-a-file-in-python-tail-f-in-python-bca026a901cf)
 		------------------------------------------------"""
 
-
-
-		#resp = process_input_file(doc.target['url'])
-		#print(json.dumps(resp, indent=4, sort_keys=True))
-
-
-		"""
-		try:
-			possibles = self.handler.searchResult(doc._id, 'DOWNLOAD')
-			vid_file = possibles[0].payload['file_path']
-		except KeyError as e:
-			return {'state': 500,
-				'message': "No DOWNLOAD result found"}
-		"""
-		#print('processing video file %s' % self.config.ASR.VIDEO_TEST_FILE)
-		#return process_input_file(vid_file)
-		#return {'state': 200, 'message': 'Success'}
+	#mount/asr-output/1272-128104-0000
+	def parse_asr_output(self):
+		'mount/asr-output/1272-128104-0000'
 
 	#TODO check how to generate the index document right here, so indexing it within the actual catalogue is much easier
 	#NOTE for openbeelden, it should be indexed in the ODL on ES7 in the amazon cluster

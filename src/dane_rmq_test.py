@@ -30,13 +30,15 @@ def simulate_dane_request():
     task = DANE.Task('ASR')
     document = DANE.Document(
         {
-            'id': 'THIS',
-            'url': '/input-files/ob-test.mp3',
+            'id': 'oai:openimages.eu:29452',
+            'url': 'https://www.openbeelden.nl/files/29/29494.29451.WEEKNUMMER243-HRE00015742.mp4',
             'type': 'Video'
         },{
-            'id': 'ASRExample',
-            'type': 'Software'
-        }
+            'id': 'openbeelden',
+            'type': 'Organization'
+        },
+        api=None,
+        _id='14cead6ceb9e887bdb3ca1ef0b9cefd84416a8e9'
     )
 
     print('now publishing the task on the channel')
