@@ -108,7 +108,7 @@ class ProcessEndpoint(Resource):
 				resp = self.run_asr(pid, input_file, simulate)
 				print('ASR done, returning response to client')
 				print(resp)
-				return json.dumps(resp), resp['state'], {}
+				return resp, resp['state'], {}
 			else:
 				print('saving the pid to this file')
 				self.create_pid_file(pid)

@@ -37,6 +37,8 @@ class asr_worker(DANE.base_classes.base_worker):
 		#['DOWNLOAD'] TODO Nanne will support adding params to this, so it's possible to override the default Task being generated for the downloader
 		self.__depends_on = []
 
+		self.SIMULATE_ASR_SERVICE = config.ASR_API.SIMULATE
+
 		if not self.validate_config():
 			print('ERROR: Invalid config, aborting')
 			quit()
@@ -49,8 +51,8 @@ class asr_worker(DANE.base_classes.base_worker):
 				print('great!')
 
 		if not self.init_asr_container():
-			#print('ERROR: Could not start speech recognition service, aborting')
-			print('ERROR: Could not start speech recognition service, but continuing anyway')
+			self.SIMULATE_ASR_SERVICE = True
+			print('ERROR: Could not start speech recognition service, continuing in simulation mode')
 			#quit()
 
 		super().__init__(
@@ -105,7 +107,6 @@ class asr_worker(DANE.base_classes.base_worker):
 
 		# step 3 submit the input file to the ASR service
 		asr_result = self.submit_asr_job(input_file, input_hash)
-
 		print(asr_result)
 
 		# step 4 generate a transcript from the ASR service's output
@@ -150,7 +151,7 @@ class asr_worker(DANE.base_classes.base_worker):
 	# https://www.openbeelden.nl/files/29/29494.29451.WEEKNUMMER243-HRE00015742.mp4
 	def download_content(self, doc):
 		if not doc.target or not 'url' in doc.target or not doc.target['url']:
-			print('No url found in doc')
+			print('No url found in DANE doc')
 			return None
 
 		print('downloading {0}'.format(doc.target['url']))
@@ -182,20 +183,29 @@ class asr_worker(DANE.base_classes.base_worker):
 	def submit_asr_job(self, input_file, input_hash):
 		print('Going to submit {0} to the ASR service'.format(input_file))
 		try:
-			resp = requests.put('http://{0}:{1}/api/{2}/{3}?input_file={4}&wait_for_completion=0'.format(
+			resp = requests.put('http://{0}:{1}/api/{2}/{3}?input_file={4}&wait_for_completion={5}&simulate={6}'.format(
 				self.config.ASR_API.HOST,
 				self.config.ASR_API.PORT,
 				'process', #replace later with process
 				input_hash,
-				input_file
+				input_file,
+				'1' if self.config.ASR_API.WAIT_FOR_COMPLETION else '0',
+				'1' if self.SIMULATE_ASR_SERVICE else '0'
 			))
 		except requests.exceptions.ConnectionError as e:
-			return {'state': 500, 'message': 'Failure: the ASR service failed to process your request'}
+			return {'state': 500, 'message': 'Failure: could not connect to the ASR service'}
 
-		print(resp.text)
+		#return the result right away if in synchronous mode
+		if self.config.ASR_API.WAIT_FOR_COMPLETION:
+			if resp.status_code == 200:
+				print('The ASR service is done, returning the results')
+				data = json.loads(resp.text)
+				return data
+			else:
+				return {'state': 500, 'message': 'Failure: the ASR service returned an error'}
 
-		print('now waiting for the ASR job to finish')
-
+		#else start polling the ASR service, using the input_hash for reference (TODO synch with asset_id)
+		print('Polling the ASR service to check when it is finished')
 		while(True):
 			resp = requests.get('http://{0}:{1}/api/{2}/{3}'.format(
 				self.config.ASR_API.HOST,
@@ -233,7 +243,7 @@ class asr_worker(DANE.base_classes.base_worker):
 			#shutil.rmtree(asr_output_dir)
 			#print("Cleaned up folder {}".format(asr_output_dir))
 		else:
-			print('ASR output dir does not exist')
+			print('Error: cannot generate transcript; ASR output dir does not exist')
 
 		return transcriptions
 
