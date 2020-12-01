@@ -8,6 +8,8 @@ import requests #for communicating with the ASR container's API
 from urllib.parse import urlparse
 from time import sleep
 import hashlib
+import codecs
+import ntpath
 
 #from work_processor import process_input_file
 
@@ -21,6 +23,7 @@ The input file is obtained by requesting the file path from the document index. 
 made available by the download worker (before the task was received in this worker)
 
 TODO catch pika.exceptions.ConnectionClosedByBroker in case the rabbitMQ is not available
+TODO maybe use https://medium.com/@aliasav/how-follow-a-file-in-python-tail-f-in-python-bca026a901cf
 """
 
 class asr_worker(DANE.base_classes.base_worker):
@@ -58,8 +61,10 @@ class asr_worker(DANE.base_classes.base_worker):
 			True, #auto_connect
 			False #no_api
 		)
-		#self.test_run()
 
+	"""----------------------------------INIT VALIDATION FUNCTIONS ---------------------------------"""
+
+	#TODO implement actual validation
 	def validate_config(self):
 		return True
 
@@ -78,76 +83,7 @@ class asr_worker(DANE.base_classes.base_worker):
 		print('Checking if the ASR container (named {0}) is running'.format(self.config.DOCKER.ASR_CONTAINER))
 		return self.__docker_container_runs(self.config.DOCKER.ASR_CONTAINER)
 
-	def test_run(self):
-		print('DOING A TEST RUN')
-		resp = process_input_file(os.path.join(os.sep, 'input-files', self.config.ASR.VIDEO_TEST_FILE))
-		print(json.dumps(resp, indent=4, sort_keys=True))
-
-	# https://www.openbeelden.nl/files/29/29494.29451.WEEKNUMMER243-HRE00015742.mp4
-	def download_content(self, doc):
-		if not doc.target or not 'url' in doc.target or not doc.target['url']:
-			print('No url found in doc')
-			return None
-
-		print('downloading {0}'.format(doc.target['url']))
-		fn = os.path.basename(urlparse(doc.target['url']).path)
-		print('saving to file {0}'.format(fn))
-		# open in binary mode
-		with open(os.path.join(self.config.DOWNLOAD.LOCAL_DIR, fn), "wb") as file:
-			# get request
-			response = requests.get(doc.target['url'])
-			# write to file
-			file.write(response.content)
-			file.close()
-		return fn
-
-	def fetch_downloaded_content(self, doc):
-		print('checking download worker output')
-		try:
-			possibles = self.handler.searchResult(doc._id, 'DOWNLOAD')
-			print(possibles)
-			return possibles[0].payload['file_path']
-		except KeyError as e:
-			print(e)
-
-		return None
-
-	def hash_string(self, s):
-		return hashlib.sha224("{0}".format(s).encode('utf-8')).hexdigest()
-
-	def submit_asr_job(self, input_file, input_hash):
-		print('Going to submit {0} to the ASR service'.format(input_file))
-		try:
-			resp = requests.put('http://{0}:{1}/api/{2}/{3}?input_file={4}&wait_for_completion=0'.format(
-				self.config.ASR_API.HOST,
-				self.config.ASR_API.PORT,
-				'process-simulation', #replace later with process
-				input_hash,
-				input_file
-			))
-		except requests.exceptions.ConnectionError as e:
-			#print('Could not connect to the ASR container. Damn shame kid, but now we are going to fake it')
-			#self.save_dummy_result(task)
-			return {'state': 500, 'message': 'Failure: the ASR service failed to process your request'}
-
-		print(resp.text)
-
-		print('now waiting for the ASR job to finish')
-
-		while(True):
-			resp = requests.get('http://{0}:{1}/api/{2}/{3}'.format(
-				self.config.ASR_API.HOST,
-				self.config.ASR_API.PORT,
-				'process-simulation', #replace later with process
-				input_hash
-			))
-			status = json.loads(resp.text)['status']
-			print(status)
-			if status == 'finished':
-				print('yay the job is done!')
-				return {'state' : 200, 'message' : 'Successfully yielded a speech transcript for {0}'.format(input_file)}
-			sleep(1)
-		return {'state' : 500, 'message' : 'Failed to generate a speech transcript for {0}'.format(input_file)}
+	"""----------------------------------INTERACTION WITH DANE SERVER ---------------------------------"""
 
 	#DANE callback function, called whenever there is a job for this worker
 	def callback(self, task, doc):
@@ -167,66 +103,197 @@ class asr_worker(DANE.base_classes.base_worker):
 		# step 2 create hash of input file to use for progress tracking
 		input_hash = self.hash_string(input_file)
 
-		# step 3
-		result = self.submit_asr_job(input_file, input_hash)
+		# step 3 submit the input file to the ASR service
+		asr_result = self.submit_asr_job(input_file, input_hash)
 
-		print(result)
+		print(asr_result)
 
-		return result
+		# step 4 generate a transcript from the ASR service's output
+		if asr_result['state'] == 200:
+			#TODO change this, harmonize the asset ID with the process ID (pid)
+			transcript = self.asr_output_to_transcript(self.get_asr_output_dir(self.get_asset_id(input_file)))
+			if transcript:
+				self.save_to_dane_index(task, transcript)
+				return {'state' : 200, 'message' : 'Successfully generated a transcript file from the ASR service output'}
+			else:
+				return {'state' : 500, 'message' : 'Failed to generate a transcript file from the ASR service output'}
 
+		#something went wrong inside the ASR service, return that response here
+		return asr_result
 
-		#print('PROCESSING TASK ON DOC')
-		"""------------------------------------------------
-		TO IMPLEMENT:
-		- call the ASR via a GET. Get a file name back
-		- keep checking the file for status update
-		- (use https://medium.com/@aliasav/how-follow-a-file-in-python-tail-f-in-python-bca026a901cf)
-		------------------------------------------------"""
-
-	#mount/asr-output/1272-128104-0000
-	def parse_asr_output(self):
-		'mount/asr-output/1272-128104-0000'
-
-	#TODO check how to generate the index document right here, so indexing it within the actual catalogue is much easier
-	#NOTE for openbeelden, it should be indexed in the ODL on ES7 in the amazon cluster
-	#NOTE for DAAN, it should be indexed within the ES5 cluster (for now)
-	def save_dummy_result(self, task):
-		r = Result(
-			self.generator,
-			payload={
-				"wordTimes": [ 300,1710,1920,2100,2580,3390,3660,4260,5550,5880,6360,7200,7770,8220,8400,8490],
-				"sequenceNr": 0,
-				"start": 0,
-				"fragmentId": "0001",
-				"words": "Zojuist op haar laatste verjaardag als regerend vorstin heeft koningin juliana afstand gedaan van de troon.",
-				"carrierId": "NIET_BEKEND__-AEN557540L7"
-			},
-			api=self.handler
-		)
-		# Now save the result
+	#Note: the supplied transcript is EXACTLY the same as what we use in layer__asr in the collection indices,
+	#meaning it should be quite trivial to append the DANE output into a collection
+	def save_to_dane_index(self, task, transcript):
+		print('saving results to DANE, task id={0}'.format(task._id))
+		r = Result(self.generator, payload=transcript, api=self.handler)
 		r.save(task._id)
 
+	"""----------------------------------ID MANAGEMENT FUNCTIONS ---------------------------------"""
+
+	#the file name without extension is used as an asset ID by the ASR container to save the results
+	def get_asset_id(self, input_file):
+		#grab the file_name from the path
+		file_name = ntpath.basename(input_file)
+
+		#split up the file in asset_id (used for creating a subfolder in the output) and extension
+		asset_id, extension = os.path.splitext(file_name)
+		return asset_id
+
+	def get_asr_output_dir(self, asset_id):
+		return os.path.join(self.config.ASR_API.OUTPUT_DIR, asset_id)
+
+	def hash_string(self, s):
+		return hashlib.sha224("{0}".format(s).encode('utf-8')).hexdigest()
+
+	"""----------------------------------DOWNLOAD FUNCTIONS ---------------------------------"""
+
+	# https://www.openbeelden.nl/files/29/29494.29451.WEEKNUMMER243-HRE00015742.mp4
+	def download_content(self, doc):
+		if not doc.target or not 'url' in doc.target or not doc.target['url']:
+			print('No url found in doc')
+			return None
+
+		print('downloading {0}'.format(doc.target['url']))
+		fn = os.path.basename(urlparse(doc.target['url']).path)
+		output_file = os.path.join(self.config.DOWNLOAD.LOCAL_DIR, fn)
+		print('saving to file {0}'.format(fn))
+
+		# download if the file is not present (preventing unnecessary downloads)
+		if not os.path.exists(output_file):
+			with open(output_file, "wb") as file:
+				response = requests.get(doc.target['url'])
+				file.write(response.content)
+				file.close()
+		return fn
+
+	def fetch_downloaded_content(self, doc):
+		print('checking download worker output')
+		try:
+			possibles = self.handler.searchResult(doc._id, 'DOWNLOAD')
+			print(possibles)
+			return possibles[0].payload['file_path']
+		except KeyError as e:
+			print(e)
+
+		return None
+
+	"""----------------------------------INTERACT WITH ASR SERVIVCE (DOCKER CONTAINER) --------------------------"""
+
+	def submit_asr_job(self, input_file, input_hash):
+		print('Going to submit {0} to the ASR service'.format(input_file))
+		try:
+			resp = requests.put('http://{0}:{1}/api/{2}/{3}?input_file={4}&wait_for_completion=0'.format(
+				self.config.ASR_API.HOST,
+				self.config.ASR_API.PORT,
+				'process', #replace later with process
+				input_hash,
+				input_file
+			))
+		except requests.exceptions.ConnectionError as e:
+			return {'state': 500, 'message': 'Failure: the ASR service failed to process your request'}
+
+		print(resp.text)
+
+		print('now waiting for the ASR job to finish')
+
+		while(True):
+			resp = requests.get('http://{0}:{1}/api/{2}/{3}'.format(
+				self.config.ASR_API.HOST,
+				self.config.ASR_API.PORT,
+				'process', #replace later with process
+				input_hash
+			))
+			status = json.loads(resp.text)['message']
+			print(status)
+			if status == 'finished':
+				return {'state' : 200, 'message' : 'The ASR service generated valid output {0}'.format(input_file)}
+
+			#wait for one second before polling again
+			sleep(1)
+
+		return {'state' : 500, 'message' : 'The ASR failed to produce the required output {0}'.format(input_file)}
+
+	"""----------------------------------PROCESS ASR OUTPUT (DOCKER MOUNT) --------------------------"""
+
+	#mount/asr-output/1272-128104-0000
+	def asr_output_to_transcript(self, asr_output_dir):
+		print('generating a transcript from the ASR output in: {0}'.format(asr_output_dir))
+		transcriptions = None
+		if os.path.exists(asr_output_dir):
+			try:
+				with codecs.open(os.path.join(asr_output_dir, '1Best.ctm'), encoding="utf-8") as times_file:
+					times = self.__extractTimeInfo(times_file)
+
+				with codecs.open(os.path.join(asr_output_dir, '1Best.txt'), encoding="utf-8") as asr_file:
+					transcriptions = self.__parseASRResults(asr_file, times)
+			except EnvironmentError as e:  # OSError or IOError...
+				print(os.strerror(e.errno))
+
+			# Clean up the extracted dir
+			#shutil.rmtree(asr_output_dir)
+			#print("Cleaned up folder {}".format(asr_output_dir))
+		else:
+			print('ASR output dir does not exist')
+
+		return transcriptions
+
+	def __parseASRResults(self, asr_file, times):
+		transcriptions = []
+		i = 0
+		cur_pos = 0
+
+		for line in asr_file:
+			parts = line.replace('\n', '').split("(")
+
+			# extract the text
+			words = parts[0].strip()
+			num_words = len(words.split(" "))
+			word_times = times[cur_pos:cur_pos+num_words]
+			cur_pos = cur_pos+num_words
+
+			# Check number of words matches the number of word_times
+			if not len(word_times) == num_words:
+				print("Number of words does not match word-times for file: {}, "
+							   "current position in file: {}".format(asr_file.name, cur_pos))
+
+			# extract the carrier and fragment ID
+			carrier_fragid = parts[1].split(" ")[0].split(".")
+			carrier = carrier_fragid[0]
+			fragid = carrier_fragid[1]
+
+			# extract the starttime
+			sTime = parts[1].split(" ")[1].replace(")", "")
+			sTime = sTime.split(".")
+			starttime = int(sTime[0]) * 1000
+
+			subtitle = {
+				'words': words,
+				'wordTimes': word_times,
+				'start': float(starttime),
+				'sequenceNr': i,
+				'fragmentId': fragid,
+				'carrierId': carrier
+			}
+			transcriptions.append(subtitle)
+			i += 1
+		return transcriptions
+
+	def __extractTimeInfo(self, times_file):
+		times = []
+
+		for line in times_file:
+			time_string = line.split(" ")[2]
+			ms_value = int(float(time_string)*1000)
+			times.append(ms_value)
+
+		return times
+
+
+# Start the worker
 if __name__ == '__main__':
 	w = asr_worker(cfg)
-
 	print(' # Initialising worker. Ctrl+C to exit')
 	try:
 		w.run()
 	except (KeyboardInterrupt, SystemExit):
 		w.stop()
-
-	"""
-	#create some dummy task & document
-	t = Task('ASR', priority=1, _id = None, api = None, state=None, msg=None)
-	d = Document({
-			'id' : '',
-			'url' : '',
-			'type' : 'Video'
-		}, {
-			'id' : '',
-			'type' : 'Human'
-		}, api=None, _id=None)
-
-	#directly do the callback to test ASR without the DANE server
-	w.callback(t, d)
-	"""

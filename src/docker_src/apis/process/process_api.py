@@ -17,27 +17,12 @@ processResponse = api.model('ProcessResponse', {
 	'status' : fields.String(description='whether the ', example="success"),
 })
 
-@api.route('/process',	endpoint='process')
-@api.doc(params={
-	'input_file': {
-		'in': 'query',
-		'description': 'path to input file starting from the mounted folder "/input-files"',
-		'default': ''
-	}
-})
-class ProcessEndpoint(Resource):
+"""
+TODO: I do not like the response format too much. Why make the status code part of the resonse object if HTTP supports
+status code natively...
+"""
 
-	#@api.response(200, 'Success', processResponse)
-	def get(self):
-		#TODO build in arg: wait_for_completion
-		input_file = request.args.get('input_file', None)
-		if input_file:
-			resp = process_input_file(os.path.join(os.sep, 'input-files', input_file))
-			return Response(json.dumps(resp), mimetype='application/json')
-			#return {'status' : 'success'}, 200, {}
-		return {'status' : 'error'}, 500, {}
-
-@api.route('/process-simulation/<string:pid>',	endpoint='process-simulation')
+@api.route('/process/<string:pid>',	endpoint='process')
 @api.doc(params={
 	'input_file': {
 		'in': 'query',
@@ -80,56 +65,70 @@ class ProcessEndpoint(Resource):
 		f.close()
 		return txt
 
-	# wait for 20 seconds (* sound of fake asr running *)
-	# run tasks from thread, so it doesnt block API response
-	def async_asr(self, pid):
+	#run ASR in a different thread, so the client immediately gets a response and can start polling progress via GET
+	def run_asr_async(self, pid, input_file, simulate=True):
 		print('starting ASR in different thread...')
-		t = threading.Thread(target=self.simulate_asr, args=(pid, self.get_pid_file_name(pid), True,))
+		t = threading.Thread(target=self.run_asr, args=(
+			pid,
+			input_file,
+			simulate,
+			self.get_pid_file_name(pid),
+			True,
+		))
 		t.daemon = True
 		t.start()
 
-	def simulate_asr(self, pid, pid_file, asynchronous=False):
+	def run_asr(self, pid, input_file, simulate=True, pid_file=None, asynchronous=False):
 		print('running asr for PID={0}'.format(pid))
-		sleep(5)
+		resp = {'state' : 200, 'message' : 'Succesfully ran ASR on {0}'.format(input_file)} # assume the best
+		if simulate:
+			sleep(5)
+		else:
+			resp = process_input_file(os.path.join(os.sep, 'input-files', input_file))
+
+		#if in async mode make sure to set the status file to "done"/"failed", so the client poller knows
 		if asynchronous:
+			success = 'state' in resp and resp['state'] == 200
 			print('updating pid file {0}'.format(pid))
 			f  = open(pid_file, 'w')
-			f.write('done')
+			f.write('done' if success else 'failed')
 			f.close()
+
+		return resp
 
 	#@api.response(200, 'Success', processResponse)
 	def put(self, pid):
-		#TODO build in arg: wait_for_completion
 		input_file = request.args.get('input_file', None)
-		wait = request.args.get('wait_for_completion', '1')
+		wait = request.args.get('wait_for_completion', '1') == '1'
+		simulate = request.args.get('simulate', '1') == '1'
 
 		if input_file:
-			#resp = process_input_file(os.path.join(os.sep, 'input-files', input_file))
-			#return Response(json.dumps(resp), mimetype='application/json')
-			if wait == '1':
+			if wait:
 				print('Starting ASR in same thread...')
-				self.simulate_asr(pid)
-				return {'status' : 'success'}, 200, {}
+				resp = self.run_asr(pid, input_file, simulate)
+				print('ASR done, returning response to client')
+				print(resp)
+				return json.dumps(resp), resp['state'], {}
 			else:
 				print('saving the pid to this file')
 				self.create_pid_file(pid)
-				self.async_asr(pid)
+				self.run_asr_async(pid, input_file, simulate)
 				return {
-					'status' : 'success',
+					'state' : 200,
 					'message' : 'submitted the ASR work; status can be retrieved via PID={0}'.format(pid),
 					'pid' : pid
 				}, 200, {}
 		else:
-			return {'status' : 'error: bad params'}, 400, {}
-		return {'status' : 'error'}, 500, {}
+			return {'state' : 400, 'message' : 'error: bad params'}, 400, {}
+		return {'state' : 500, 'message' : 'error: internal server error'}, 500, {}
 
 	#fetch the status of the pid
 	def get(self, pid):
 		if not self.pid_file_exists(pid):
-			return {'status' : 'Error: PID does not exist (anymore)'}, 404, {}
+			return {'state' : 404, 'message' : 'Error: PID does not exist (anymore)'}, 404, {}
 
 		status = self.read_pid_file(pid)
 		if status == 'done':
-			return {'status' : 'finished'}, 200, {}
+			return {'state' : 200, 'message' : 'finished'}, 200, {}
 		else:
-			return {'status' : 'in progress'}, 200, {}
+			return {'state' : 200, 'message' : 'in progress'}, 200, {}
