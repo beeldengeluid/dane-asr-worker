@@ -9,7 +9,7 @@ set -e
 
 PWD=`pwd`
 
-docker run --rm -v $PWD/mount/input-files:/input-files \
+docker run --rm -d -v $PWD/mount/input-files:/input-files \
 	-v $PWD/mount/output-files:/output-files \
 	-v $PWD/mount/asr-output:/asr-output \
 	-p $DANE_DOCKER_PORT:$DANE_DOCKER_PORT \
