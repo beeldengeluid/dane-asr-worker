@@ -36,6 +36,7 @@ class asr_worker(DANE.base_classes.base_worker):
 		self.__binding_key = "#.ASR" #['Video.ASR', 'Sound.ASR']#'#.ASR'
 		#['DOWNLOAD'] TODO Nanne will support adding params to this, so it's possible to override the default Task being generated for the downloader
 		self.__depends_on = []
+		#self.__depends_on = [{ 'key': 'DOWNLOAD', 'some_arg': 'bla' }]
 
 		self.SIMULATE_ASR_SERVICE = config.ASR_API.SIMULATE
 
