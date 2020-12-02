@@ -127,6 +127,8 @@ class asr_worker(DANE.base_classes.base_worker):
 	#meaning it should be quite trivial to append the DANE output into a collection
 	def save_to_dane_index(self, task, transcript):
 		print('saving results to DANE, task id={0}'.format(task._id))
+		print(transcript)
+		print(type(transcript))
 		r = Result(self.generator, payload=transcript, api=self.handler)
 		r.save(task._id)
 
