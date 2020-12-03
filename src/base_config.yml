@@ -1,4 +1,27 @@
-ASR:
- VIDEO_TEST_FILE: "ob-test.mp4"
- AUDIO_TEST_FILE: "1272-128104-0000.wav"
- MP3_TEST_FILE: "WEEKNUMMER782-HRE00004AFD_1661000_1734000.mp3"
+DEBUG: false
+RABBITMQ:
+    HOST: 'localhost'
+    PORT: 5672
+    EXCHANGE: 'DANE-exchange'
+    RESPONSE_QUEUE: 'DANE-response-queue'
+    USER: 'guest'
+    PASSWORD: 'guest'
+ELASTICSEARCH:
+    HOST: 'localhost'
+    PORT: 9200
+    #USER: 'elastic'
+    #PASSWORD: 'changeme'
+    SCHEME: 'http'
+DOCKER:
+    ASR_CONTAINER: 'dane-asr'
+    RABBITMQ_CONTAINER: 'dane-rmq'
+ASR_API:
+    HOST: 'localhost'
+    PORT: 3023
+    OUTPUT_DIR: '../mount/asr-output'
+    SIMULATE: false
+    WAIT_FOR_COMPLETION: true
+DOWNLOAD:
+    USE_DANE_DOWNLOADER: false
+    LOCAL_DIR: '../mount/input-files'
+
