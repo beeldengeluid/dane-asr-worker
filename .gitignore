@@ -6,3 +6,4 @@ decoders
 logvergelijk
 config.yml
 pid-cache
+src/docker_src/log

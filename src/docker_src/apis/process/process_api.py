@@ -5,7 +5,8 @@ from time import sleep
 import os
 from flask import current_app, request, Response
 from flask_restx import Api, Namespace, Resource, fields
-
+import logging
+from settings import LOG_NAME, PID_CACHE_DIR
 from work_processor import process_input_file
 
 api = Namespace('ASR Processing API', description='Process mp3 & wav into text')
@@ -17,6 +18,7 @@ processResponse = api.model('ProcessResponse', {
 	'status' : fields.String(description='whether the ', example="success"),
 })
 
+logger = logging.getLogger(LOG_NAME)
 """
 TODO: I do not like the response format too much. Why make the status code part of the resonse object if HTTP supports
 status code natively...
@@ -43,7 +45,7 @@ status code natively...
 class ProcessEndpoint(Resource):
 
 	def get_pid_file_name(self, pid):
-		return '{0}/{1}'.format(current_app.config['PID_CACHE_DIR'], pid)
+		return '{0}/{1}'.format(PID_CACHE_DIR, pid)
 
 	def pid_file_exists(self, pid):
 		return os.path.exists(self.get_pid_file_name(pid))
@@ -67,7 +69,7 @@ class ProcessEndpoint(Resource):
 
 	#run ASR in a different thread, so the client immediately gets a response and can start polling progress via GET
 	def run_asr_async(self, pid, input_file, simulate=True):
-		print('starting ASR in different thread...')
+		logger.debug('starting ASR in different thread...')
 		t = threading.Thread(target=self.run_asr, args=(
 			pid,
 			input_file,
@@ -79,7 +81,7 @@ class ProcessEndpoint(Resource):
 		t.start()
 
 	def run_asr(self, pid, input_file, simulate=True, pid_file=None, asynchronous=False):
-		print('running asr for PID={0}'.format(pid))
+		logger.debug('running asr for PID={0}'.format(pid))
 		resp = {'state' : 200, 'message' : 'Succesfully ran ASR on {0}'.format(input_file)} # assume the best
 		if simulate:
 			sleep(5)
@@ -89,7 +91,7 @@ class ProcessEndpoint(Resource):
 		#if in async mode make sure to set the status file to "done"/"failed", so the client poller knows
 		if asynchronous:
 			success = 'state' in resp and resp['state'] == 200
-			print('updating pid file {0}'.format(pid))
+			logger.debug('updating pid file {0}'.format(pid))
 			f  = open(pid_file, 'w')
 			f.write('done' if success else 'failed')
 			f.close()
@@ -104,13 +106,13 @@ class ProcessEndpoint(Resource):
 
 		if input_file:
 			if wait:
-				print('Starting ASR in same thread...')
+				logger.debug('Starting ASR in same thread...')
 				resp = self.run_asr(pid, input_file, simulate)
-				print('ASR done, returning response to client')
-				print(resp)
+				logger.debug('ASR done, returning response to client')
+				logger.debug(resp)
 				return resp, resp['state'], {}
 			else:
-				print('saving the pid to this file')
+				logger.debug('saving the pid to this file')
 				self.create_pid_file(pid)
 				self.run_asr_async(pid, input_file, simulate)
 				return {
@@ -124,6 +126,7 @@ class ProcessEndpoint(Resource):
 
 	#fetch the status of the pid
 	def get(self, pid):
+		logger.debug('Getting status for pid {0}'.format(pid))
 		if not self.pid_file_exists(pid):
 			return {'state' : 404, 'message' : 'Error: PID does not exist (anymore)'}, 404, {}
 
