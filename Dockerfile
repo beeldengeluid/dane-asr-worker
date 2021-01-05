@@ -28,7 +28,7 @@ RUN pip3 install -r /src/requirements.txt
 RUN sudo mkdir /input-files
 RUN sudo mkdir /output-files
 RUN sudo mkdir /asr-output
-RUN sudo mkdir /src/log && chmod -R 777 /src/log
+RUN sudo mkdir /src/log && sudo chmod -R 777 /src/log
 RUN sudo mkdir /src/pid-cache
 
 #make sure to set the KALDI_ROOT or kaldi_NL won't be able to locate it
