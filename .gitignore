@@ -8,3 +8,5 @@ config.yml
 pid-cache
 src/docker_src/log
 src/docker_src/settings.py
+src/scripts/*
+!src/scripts/README.md

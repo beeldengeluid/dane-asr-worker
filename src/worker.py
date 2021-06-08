@@ -185,7 +185,7 @@ class asr_worker(DANE.base_classes.base_worker):
 	def submit_asr_job(self, input_file, input_hash):
 		print('Going to submit {0} to the ASR service'.format(input_file))
 		try:
-			resp = requests.put('http://{0}:{1}/api/{2}/{3}?input_file={4}&wait_for_completion={5}&simulate={6}'.format(
+			resp = requests.put('http://{}:{}/api/{}/{}?input_file={}&wait_for_completion={}&simulate={}'.format(
 				self.config.ASR_API.HOST,
 				self.config.ASR_API.PORT,
 				'process', #replace later with process

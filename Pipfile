@@ -7,9 +7,5 @@ verify_ssl = true
 
 [packages]
 requests = "*"
-flask = "*"
 dane = "*"
 flask-restx = "*"
-
-[requires]
-python_version = "3.7"
