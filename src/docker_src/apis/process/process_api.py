@@ -133,7 +133,7 @@ class ProcessEndpoint(Resource):
 		status = self.read_pid_file(pid)
 		if status == 'done':
 			return {'state' : 200, 'message' : 'finished'}, 200, {}
-		elif status == 'done':
+		elif status == 'failed':
 			return {'state' : 500, 'message' : 'failed'}, 200, {}
 		else:
 			return {'state' : 200, 'message' : 'in progress'}, 200, {}

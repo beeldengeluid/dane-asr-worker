@@ -216,11 +216,14 @@ class asr_worker(DANE.base_classes.base_worker):
 				input_hash
 			))
 			status = json.loads(resp.text)['message']
+			state = json.loads(resp.text)['state']
 			print(status)
 			if status == 'finished':
 				return {'state' : 200, 'message' : 'The ASR service generated valid output {0}'.format(input_file)}
-			elif status == 'failed':
+			elif state == 500:
 				return {'state' : 500, 'message' : 'The ASR failed to produce the required output {0}'.format(input_file)}
+			elif state == 404:
+				return {'state' : 404, 'message' : 'The ASR failed to find the required input {0}'.format(input_file)}
 
 			#wait for one second before polling again
 			sleep(1)
