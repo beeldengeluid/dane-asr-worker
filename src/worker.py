@@ -188,7 +188,7 @@ class asr_worker(DANE.base_classes.base_worker):
 			resp = requests.put('http://{}:{}/api/{}/{}?input_file={}&wait_for_completion={}&simulate={}'.format(
 				self.config.ASR_API.HOST,
 				self.config.ASR_API.PORT,
-				'process', #replace later with process
+				'process', #replace with process_debug to debug(?)
 				input_hash,
 				input_file,
 				'1' if self.config.ASR_API.WAIT_FOR_COMPLETION else '0',
@@ -219,6 +219,8 @@ class asr_worker(DANE.base_classes.base_worker):
 			print(status)
 			if status == 'finished':
 				return {'state' : 200, 'message' : 'The ASR service generated valid output {0}'.format(input_file)}
+			elif status == 'failed':
+				return {'state' : 500, 'message' : 'The ASR failed to produce the required output {0}'.format(input_file)}
 
 			#wait for one second before polling again
 			sleep(1)
