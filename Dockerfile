@@ -29,7 +29,7 @@ RUN sudo mkdir /input-files
 RUN sudo mkdir /output-files
 RUN sudo mkdir /asr-output
 RUN sudo mkdir /src/log && sudo chmod -R 777 /src/log
-RUN sudo mkdir /src/pid-cache
+RUN sudo mkdir /src/pid-cache && sudo chmod -R 777 /src/pid-cache
 
 #make sure to set the KALDI_ROOT or kaldi_NL won't be able to locate it
 ENV KALDI_ROOT=/usr/local/opt/kaldi
