@@ -215,20 +215,23 @@ class asr_worker(DANE.base_classes.base_worker):
 				'process', #replace later with process
 				input_hash
 			))
-			status = json.loads(resp.text)['message']
-			state = json.loads(resp.text)['state']
-			print(status)
-			if status == 'finished':
-				return {'state' : 200, 'message' : 'The ASR service generated valid output {0}'.format(input_file)}
+			process_msg = json.loads(resp.text)
+
+			msg = process_msg['message'] if 'message' in process_msg else 'Error: no valid message received from ASR'
+			state = process_msg['state'] if 'state' in process_msg else 500
+			finished = process_msg['finished'] if 'finished' in process_msg else False
+
+			if finished:
+				return {'state' : 200, 'message' : 'The ASR service generated valid output {}'.format(input_file)}
 			elif state == 500:
-				return {'state' : 500, 'message' : 'The ASR failed to produce the required output {0}'.format(input_file)}
+				return {'state' : 500, 'message' : 'The ASR failed to produce the required output {}'.format(input_file)}
 			elif state == 404:
-				return {'state' : 404, 'message' : 'The ASR failed to find the required input {0}'.format(input_file)}
+				return {'state' : 404, 'message' : 'The ASR failed to find the required input {}'.format(input_file)}
 
 			#wait for one second before polling again
 			sleep(1)
 
-		return {'state' : 500, 'message' : 'The ASR failed to produce the required output {0}'.format(input_file)}
+		return {'state' : 500, 'message' : 'The ASR failed to produce the required output {}'.format(input_file)}
 
 	"""----------------------------------PROCESS ASR OUTPUT (DOCKER MOUNT) --------------------------"""
 

@@ -35,7 +35,7 @@ def run_asr(input_path, asset_id):
 
 
 def process_asr_output(asset_id):
-	print('processing the output of {0}'.format(asset_id))
+	print('processing the output of {}'.format(asset_id))
 
 	if validate_asr_output(asset_id) == False:
 		return {'state': 500, 'message': 'error: ASR output did not yield a transcript file'}
@@ -47,7 +47,7 @@ def process_asr_output(asset_id):
 	package_output(asset_id)
 
 	#package the features and json file, so it can be used for indexing or something else
-	return {'state': 200, 'message': 'Successfully processed {0}'.format(asset_id)}
+	return {'state': 200, 'message': 'Successfully processed {}'.format(asset_id), 'finished' : True}
 
 #if there is no 1Best.ctm there is something wrong with the input file or Kaldi...
 #TODO also check if the files and dir for package_output are there

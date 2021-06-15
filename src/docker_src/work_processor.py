@@ -30,6 +30,10 @@ def run_simulation(pid, input_file_path, asynchronous=False):
 			'state': 404, 'message': 'No file found at file location {0}'.format(input_file_path)
 		})
 	else:
+		#first write to the PID that the process is busy, then sleep for 5 seconds to simulate ASR/transcoding
+		_write_pid_file_json(pid, {
+			'state' : 200, 'message' : 'Simulation in progress'
+		})
 		sleep(5)
 		return _resp_to_pid_file(pid, asynchronous, {
 			'state' : 200, 'message' : 'Succesfully ran ASR on {0}'.format(input_file_path)
@@ -85,15 +89,13 @@ def process_input_file(pid, input_file_path, asynchronous=False):
 def poll_pid_status(pid):
 	logger.debug('Getting status for pid {}'.format(pid))
 	if not _pid_file_exists(pid):
-		return {'state' : 404, 'message' : 'Error: PID does not exist (anymore)'}, 404, {}
+		return {'state' : 404, 'message' : 'Error: PID does not exist (anymore)'}
 
 	status = _read_pid_file(pid)
-	if status == 'done':
-		return {'state' : 200, 'message' : 'finished'}, 200, {}
-	elif status == 'failed':
-		return {'state' : 500, 'message' : 'failed'}, 200, {}
-	else:
-		return {'state' : 200, 'message' : 'in progress'}, 200, {}
+	try:
+		return json.loads(status)
+	except Exception as e:
+		return {'state' : 500, 'message' : 'PID file was corrupted'}
 
 def _is_audio_file(extension):
 	return extension in ['.mp3', '.wav']
@@ -118,7 +120,7 @@ def _remove_files(path):
 #writes the API response to the PID file, if the "ASR job" is running asynchronously
 def _resp_to_pid_file(pid, asynchronous, resp):
 	if asynchronous:
-		_write_pid_file(pid, json.dumps(resp))
+		_write_pid_file_json(pid, resp)
 	return resp
 
 def _get_pid_file_name(pid):
@@ -127,13 +129,9 @@ def _get_pid_file_name(pid):
 def _pid_file_exists(pid):
 	return os.path.exists(_get_pid_file_name(pid))
 
-def _create_pid_file(pid):
+def _write_pid_file_json(pid, json_data):
 	f  = open(_get_pid_file_name(pid), 'w+')
-	f.close()
-
-def _write_pid_file(pid, txt):
-	f  = open(_get_pid_file_name(pid), 'w')
-	f.write(txt)
+	f.write(json.dumps(json_data))
 	f.close()
 
 def _read_pid_file(pid):
