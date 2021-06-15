@@ -140,6 +140,7 @@ class asr_worker(DANE.base_classes.base_worker):
 
 		#split up the file in asset_id (used for creating a subfolder in the output) and extension
 		asset_id, extension = os.path.splitext(file_name)
+		print('working with this asset ID {}'.format(asset_id))
 		return asset_id
 
 	def get_asr_output_dir(self, asset_id):

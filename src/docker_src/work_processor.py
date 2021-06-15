@@ -120,6 +120,7 @@ def _remove_files(path):
 
 #writes the API response to the PID file, if the "ASR job" is running asynchronously
 def _resp_to_pid_file(pid, asynchronous, resp):
+	logger.debug(resp)
 	if asynchronous:
 		_write_pid_file_json(pid, resp)
 	return resp

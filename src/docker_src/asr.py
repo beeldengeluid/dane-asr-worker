@@ -3,8 +3,9 @@ import os
 import tarfile
 import glob
 import json
+import logging
 
-from settings import ASR_OUTPUT_DIR, ASR_PACKAGE_NAME, ASR_WORD_JSON_FILE, KALDI_NL_DIR, KALDI_NL_DECODER
+from settings import ASR_OUTPUT_DIR, ASR_PACKAGE_NAME, ASR_WORD_JSON_FILE, KALDI_NL_DIR, KALDI_NL_DECODER, LOG_NAME
 
 """
 This module contains functions for running audio files through Kaldi_NL to generate a speech transcript.
@@ -17,9 +18,11 @@ Moreover this module has functions for:
 """
 ASR_TRANSCRIPT_FILE = '1Best.ctm'
 
+logger = logging.getLogger(LOG_NAME)
+
 #runs the asr on the input path and puts the results in the ASR_OUTPUT_DIR dir
 def run_asr(input_path, asset_id):
-	print("Starting ASR")
+	logger.debug("Starting ASR")
 	cmd = "cd {0}; ./{1} {2} /{3}/{4}".format(
 		KALDI_NL_DIR,
 		KALDI_NL_DECODER,
@@ -27,15 +30,15 @@ def run_asr(input_path, asset_id):
 		ASR_OUTPUT_DIR,
 		asset_id
 	)
-	print(cmd)
+	logger.debug(cmd)
 	process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
 	stdout = process.communicate()[0]  # wait until finished. Remove stdout stuff if letting run in background and continue.
-	print(stdout)
+	logger.debug(stdout)
 	return stdout
 
 
 def process_asr_output(asset_id):
-	print('processing the output of {}'.format(asset_id))
+	logger.debug('processing the output of {}'.format(asset_id))
 
 	if validate_asr_output(asset_id) == False:
 		return {'state': 500, 'message': 'error: ASR output did not yield a transcript file'}
@@ -52,7 +55,9 @@ def process_asr_output(asset_id):
 #if there is no 1Best.ctm there is something wrong with the input file or Kaldi...
 #TODO also check if the files and dir for package_output are there
 def validate_asr_output(asset_id):
-	return os.path.isfile(__get_transcript_file_path(asset_id))
+	transcript_file = __get_transcript_file_path(asset_id)
+	logger.debug('Checking if transcript exists'.format(transcript_file))
+	return os.path.isfile(transcript_file)
 
 #packages the features and the human readable output (1Best.*)
 def package_output(asset_id):
@@ -82,7 +87,7 @@ def create_word_json(asset_id, save_in_asr_output=False):
 	word_json = []
 	with open(transcript, encoding='utf-8', mode='r') as file:
 		for line in file.readlines():
-			print(line)
+			logger.debug(line)
 			data = line.split(' ')
 
 			start_time = float(data[2]) * 1000  # in millisec
@@ -97,7 +102,7 @@ def create_word_json(asset_id, save_in_asr_output=False):
 		with open(__get_words_file_path(asset_id), 'w+') as outfile:
 			json.dump(word_json, outfile, indent=4)
 
-	print(json.dumps(word_json, indent=4, sort_keys=True))
+	logger.debug(json.dumps(word_json, indent=4, sort_keys=True))
 	return word_json
 
 def get_output_dir(asset_id):
