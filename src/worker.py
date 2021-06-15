@@ -5,7 +5,7 @@ import json
 import os
 import subprocess #used for calling cmd line to check if the required docker containers are up
 import requests #for communicating with the ASR container's API
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse, unquote, quote
 from time import sleep
 import hashlib
 import codecs
@@ -192,7 +192,7 @@ class asr_worker(DANE.base_classes.base_worker):
 				self.config.ASR_API.PORT,
 				'process', #replace with process_debug to debug(?)
 				input_hash,
-				urlparse(input_file),
+				quote(input_file),
 				'1' if self.config.ASR_API.WAIT_FOR_COMPLETION else '0',
 				'1' if self.SIMULATE_ASR_SERVICE else '0'
 			)
