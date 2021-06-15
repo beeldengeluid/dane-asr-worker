@@ -159,7 +159,7 @@ class asr_worker(DANE.base_classes.base_worker):
 
 		print('downloading {}'.format(doc.target['url']))
 		fn = os.path.basename(urlparse(doc.target['url']).path)
-		fn = unquote(fn)
+		#fn = unquote(fn)
 		#fn = doc.target['url'][doc.target['url'].rfind('/') +1:]
 		output_file = os.path.join(self.config.DOWNLOAD.LOCAL_DIR, fn)
 		print('saving to file {}'.format(fn))
@@ -193,7 +193,7 @@ class asr_worker(DANE.base_classes.base_worker):
 				self.config.ASR_API.PORT,
 				'process', #replace with process_debug to debug(?)
 				input_hash,
-				quote(input_file),
+				input_file,
 				'1' if self.config.ASR_API.WAIT_FOR_COMPLETION else '0',
 				'1' if self.SIMULATE_ASR_SERVICE else '0'
 			)

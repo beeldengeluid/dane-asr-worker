@@ -5,6 +5,7 @@ from flask_restx import Namespace, Resource, fields
 import logging
 from settings import LOG_NAME, MAIN_INPUT_DIR
 from work_processor import process_input_file, run_simulation, poll_pid_status
+from urllib.parse import quote
 
 api = Namespace('ASR Processing API', description='Process mp3 & wav into text')
 
@@ -88,7 +89,10 @@ class ProcessEndpoint(Resource):
 	def _process(self, pid, input_file, simulate=True, asynchronous=False):
 		logger.debug('running asr (input_file={}) for PID={}'.format(input_file, pid))
 		if simulate:
-			resp = run_simulation(pid, os.path.join(MAIN_INPUT_DIR, input_file), asynchronous)
+			resp = run_simulation(pid, self._to_actual_input_filename(input_file), asynchronous)
 		else:
-			resp = process_input_file(pid, os.path.join(MAIN_INPUT_DIR, input_file), asynchronous)
+			resp = process_input_file(pid, self._to_actual_input_filename(input_file), asynchronous)
 		return resp
+
+	def _to_actual_input_filename(self, input_file):
+		return os.path.join(MAIN_INPUT_DIR, quote(input_file))
