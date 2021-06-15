@@ -86,8 +86,7 @@ class ProcessEndpoint(Resource):
 		}
 
 	def _process(self, pid, input_file, simulate=True, asynchronous=False):
-		logger.debug('Starting ASR in same thread...')
-		logger.debug('running asr for PID={}'.format(pid))
+		logger.debug('running asr (input_file={}) for PID={}'.format(input_file, pid))
 		if simulate:
 			resp = run_simulation(pid, os.path.join(MAIN_INPUT_DIR, input_file), asynchronous)
 		else:

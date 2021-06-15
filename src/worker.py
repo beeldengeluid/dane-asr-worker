@@ -156,10 +156,11 @@ class asr_worker(DANE.base_classes.base_worker):
 			print('No url found in DANE doc')
 			return None
 
-		print('downloading {0}'.format(doc.target['url']))
-		fn = os.path.basename(urlparse(doc.target['url']).path)
+		print('downloading {}'.format(doc.target['url']))
+		#fn = os.path.basename(urlparse(doc.target['url']).path)
+		fn = doc.target['url'][doc.target['url'].rfind('/') +1:]
 		output_file = os.path.join(self.config.DOWNLOAD.LOCAL_DIR, fn)
-		print('saving to file {0}'.format(fn))
+		print('saving to file {}'.format(fn))
 
 		# download if the file is not present (preventing unnecessary downloads)
 		if not os.path.exists(output_file):
