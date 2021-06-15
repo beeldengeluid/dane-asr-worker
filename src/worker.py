@@ -5,7 +5,7 @@ import json
 import os
 import subprocess #used for calling cmd line to check if the required docker containers are up
 import requests #for communicating with the ASR container's API
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 from time import sleep
 import hashlib
 import codecs
@@ -157,8 +157,9 @@ class asr_worker(DANE.base_classes.base_worker):
 			return None
 
 		print('downloading {}'.format(doc.target['url']))
-		#fn = os.path.basename(urlparse(doc.target['url']).path)
-		fn = doc.target['url'][doc.target['url'].rfind('/') +1:]
+		fn = os.path.basename(urlparse(doc.target['url']).path)
+		fn = unquote(fn)
+		#fn = doc.target['url'][doc.target['url'].rfind('/') +1:]
 		output_file = os.path.join(self.config.DOWNLOAD.LOCAL_DIR, fn)
 		print('saving to file {}'.format(fn))
 
