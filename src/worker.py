@@ -185,7 +185,7 @@ class asr_worker(DANE.base_classes.base_worker):
 	def submit_asr_job(self, input_file, input_hash):
 		print('Going to submit {} to the ASR service, using PID={}'.format(input_file, input_hash))
 		try:
-			resp = requests.put('http://{}:{}/api/{}/{}?input_file={}&wait_for_completion={}&simulate={}'.format(
+			dane_asr_api_url = 'http://{}:{}/api/{}/{}?input_file={}&wait_for_completion={}&simulate={}'.format(
 				self.config.ASR_API.HOST,
 				self.config.ASR_API.PORT,
 				'process', #replace with process_debug to debug(?)
@@ -193,7 +193,9 @@ class asr_worker(DANE.base_classes.base_worker):
 				input_file,
 				'1' if self.config.ASR_API.WAIT_FOR_COMPLETION else '0',
 				'1' if self.SIMULATE_ASR_SERVICE else '0'
-			))
+			)
+			print(dane_asr_api_url)
+			resp = requests.put(dane_asr_api_url)
 		except requests.exceptions.ConnectionError as e:
 			return {'state': 500, 'message': 'Failure: could not connect to the ASR service'}
 
@@ -204,6 +206,8 @@ class asr_worker(DANE.base_classes.base_worker):
 				data = json.loads(resp.text)
 				return data
 			else:
+				print('error returned')
+				print(resp.text)
 				return {'state': 500, 'message': 'Failure: the ASR service returned an error'}
 
 		#else start polling the ASR service, using the input_hash for reference (TODO synch with asset_id)
