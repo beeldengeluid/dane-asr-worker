@@ -192,7 +192,7 @@ class asr_worker(DANE.base_classes.base_worker):
 				self.config.ASR_API.PORT,
 				'process', #replace with process_debug to debug(?)
 				input_hash,
-				input_file,
+				urlparse(input_file),
 				'1' if self.config.ASR_API.WAIT_FOR_COMPLETION else '0',
 				'1' if self.SIMULATE_ASR_SERVICE else '0'
 			)
