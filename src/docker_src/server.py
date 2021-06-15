@@ -4,7 +4,7 @@ from flask import request, Response
 
 import os
 import json
-from settings import APP_HOST, APP_PORT, PID_CACHE_DIR, LOG_DIR, LOG_NAME, LOG_LEVEL_CONSOLE, LOG_LEVEL_FILE
+from settings import APP_HOST, APP_PORT, PID_CACHE_DIR, LOG_DIR, LOG_NAME, LOG_LEVEL_CONSOLE, LOG_LEVEL_FILE, DEBUG
 from work_processor import process_input_file
 from apis import api
 from logging_util import init_logger
@@ -16,6 +16,7 @@ Note: you can check support pretty well with https://editor.swagger.io/
 """
 
 app = Flask(__name__)
+app.config['DEBUG'] = DEBUG
 
 #initiliaze the logger
 logger = init_logger(LOG_DIR, LOG_NAME, LOG_LEVEL_CONSOLE, LOG_LEVEL_FILE)

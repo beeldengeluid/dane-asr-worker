@@ -1,8 +1,11 @@
 import os
 import ntpath
 import shutil
+import logging
+from time import sleep
 from asr import run_asr, process_asr_output, create_word_json
 from transcode import transcode_to_mp3
+from settings import LOG_NAME
 
 """
 This module contains all the specific processing functions for the DANE-asr-worker. The reason
@@ -14,6 +17,17 @@ The processing consists of:
 - if not: first transcode it (see module: transcode.py)
 - finally: package the ASR output into a tar.gz (optional)
 """
+
+logger = logging.getLogger(LOG_NAME)
+
+def run_simulation(input_file_path):
+	logger.debug('simlating ASR, but verifying the validity of the request params')
+	logger.debug(input_file_path)
+	if not os.path.isfile(input_file_path):  # check if inputfile exists
+		return {'state': 404, 'message': 'No file found at file location {0}'.format(input_file_path)}
+	else:
+		sleep(5)
+		return {'state' : 200, 'message' : 'Succesfully ran ASR on {0}'.format(input_file_path)} # assume the best
 
 def process_input_file(input_file_path):
 	print('analyzing the input file path')

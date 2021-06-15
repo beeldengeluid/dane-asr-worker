@@ -1,13 +1,12 @@
 import requests
 import json
 import threading
-from time import sleep
 import os
 from flask import current_app, request, Response
 from flask_restx import Api, Namespace, Resource, fields
 import logging
-from settings import LOG_NAME, PID_CACHE_DIR
-from work_processor import process_input_file
+from settings import LOG_NAME, PID_CACHE_DIR, MAIN_INPUT_DIR
+from work_processor import process_input_file, run_simulation
 
 api = Namespace('ASR Processing API', description='Process mp3 & wav into text')
 
@@ -40,6 +39,11 @@ status code natively...
 		'in' : 'query',
 		'description' : 'wait for the completion of the ASR or not',
 		'default' : '1'
+	},
+	'simulate' : {
+		'in' : 'query',
+		'description' : 'for development without working ASR available: simulate the ASR',
+		'default' : '1'
 	}
 })
 class ProcessEndpoint(Resource):
@@ -67,10 +71,12 @@ class ProcessEndpoint(Resource):
 		f.close()
 		return txt
 
-	#run ASR in a different thread, so the client immediately gets a response and can start polling progress via GET
-	def run_asr_async(self, pid, input_file, simulate=True):
+	#process in a different thread, so the client immediately gets a response and can start polling progress via GET
+	def process_async(self, pid, input_file, simulate=True):
+		logger.debug('Processing mode = async; saving the pid to file')
+		self.create_pid_file(pid)
 		logger.debug('starting ASR in different thread...')
-		t = threading.Thread(target=self.run_asr, args=(
+		t = threading.Thread(target=self.process, args=(
 			pid,
 			input_file,
 			simulate,
@@ -80,13 +86,20 @@ class ProcessEndpoint(Resource):
 		t.daemon = True
 		t.start()
 
-	def run_asr(self, pid, input_file, simulate=True, pid_file=None, asynchronous=False):
-		logger.debug('running asr for PID={0}'.format(pid))
-		resp = {'state' : 200, 'message' : 'Succesfully ran ASR on {0}'.format(input_file)} # assume the best
+		#return this response, so the client knows it can start polling
+		return {
+			'state' : 200,
+			'message' : 'submitted the ASR work; status can be retrieved via PID={0}'.format(pid),
+			'pid' : pid
+		}, 200, {}
+
+	def process(self, pid, input_file, simulate=True, pid_file=None, asynchronous=False):
+		logger.debug('Starting ASR in same thread...')
+		logger.debug('running asr for PID={}'.format(pid))
 		if simulate:
-			sleep(5)
+			resp = run_simulation(os.path.join(MAIN_INPUT_DIR, input_file))
 		else:
-			resp = process_input_file(os.path.join(os.sep, 'input-files', input_file))
+			resp = process_input_file(os.path.join(MAIN_INPUT_DIR, input_file))
 
 		#if in async mode make sure to set the status file to "done"/"failed", so the client poller knows
 		if asynchronous:
@@ -103,23 +116,12 @@ class ProcessEndpoint(Resource):
 		input_file = request.args.get('input_file', None)
 		wait = request.args.get('wait_for_completion', '1') == '1'
 		simulate = request.args.get('simulate', '1') == '1'
-
 		if input_file:
 			if wait:
-				logger.debug('Starting ASR in same thread...')
-				resp = self.run_asr(pid, input_file, simulate)
-				logger.debug('ASR done, returning response to client')
-				logger.debug(resp)
-				return resp, resp['state'], {}
+				resp = self.process(pid, input_file, simulate)
 			else:
-				logger.debug('saving the pid to this file')
-				self.create_pid_file(pid)
-				self.run_asr_async(pid, input_file, simulate)
-				return {
-					'state' : 200,
-					'message' : 'submitted the ASR work; status can be retrieved via PID={0}'.format(pid),
-					'pid' : pid
-				}, 200, {}
+				resp = self.process_async(pid, input_file, simulate)
+			return resp, resp['state'], {}
 		else:
 			return {'state' : 400, 'message' : 'error: bad params'}, 400, {}
 		return {'state' : 500, 'message' : 'error: internal server error'}, 500, {}

@@ -2,8 +2,11 @@
 APP_HOST = '0.0.0.0'
 APP_PORT = 3023 #Note: also change start-container.sh if you change this value!
 
+#MAIN_INPUT_DIR = '../../mount/input-files' when testing the process_api seperately
+MAIN_INPUT_DIR = '/input-files' #when running the docker container
+
 #asr module settings (asr.py)
-ASR_OUTPUT_DIR = 'asr-output'
+ASR_OUTPUT_DIR = '/asr-output'
 ASR_PACKAGE_NAME = 'asr-features.tar.gz'
 ASR_WORD_JSON_FILE = 'words.json'
 
