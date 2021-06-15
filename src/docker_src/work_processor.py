@@ -25,15 +25,16 @@ logger = logging.getLogger(LOG_NAME)
 def run_simulation(pid, input_file_path, asynchronous=False):
 	logger.debug('simlating ASR, but verifying the validity of the request params')
 	logger.debug(input_file_path)
+
+	#first write to the PID that the process is busy, then sleep for 5 seconds to simulate ASR/transcoding
+	_write_pid_file_json(pid, {
+		'state' : 200, 'message' : 'Simulation in progress'
+	})
 	if not os.path.isfile(input_file_path):  # check if inputfile exists
 		return _resp_to_pid_file(pid, asynchronous, {
 			'state': 404, 'message': 'No file found at file location {0}'.format(input_file_path)
 		})
 	else:
-		#first write to the PID that the process is busy, then sleep for 5 seconds to simulate ASR/transcoding
-		_write_pid_file_json(pid, {
-			'state' : 200, 'message' : 'Simulation in progress'
-		})
 		sleep(5)
 		return _resp_to_pid_file(pid, asynchronous, {
 			'state' : 200, 'message' : 'Succesfully ran ASR on {0}'.format(input_file_path)

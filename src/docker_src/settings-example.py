@@ -1,3 +1,5 @@
+DEBUG = True
+
 #debug service settings (settings.py)
 APP_HOST = '0.0.0.0'
 APP_PORT = 3023 #Note: also change start-container.sh if you change this value!

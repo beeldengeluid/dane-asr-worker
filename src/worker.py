@@ -183,7 +183,7 @@ class asr_worker(DANE.base_classes.base_worker):
 	"""----------------------------------INTERACT WITH ASR SERVIVCE (DOCKER CONTAINER) --------------------------"""
 
 	def submit_asr_job(self, input_file, input_hash):
-		print('Going to submit {0} to the ASR service'.format(input_file))
+		print('Going to submit {} to the ASR service, using PID={}'.format(input_file, input_hash))
 		try:
 			resp = requests.put('http://{}:{}/api/{}/{}?input_file={}&wait_for_completion={}&simulate={}'.format(
 				self.config.ASR_API.HOST,
