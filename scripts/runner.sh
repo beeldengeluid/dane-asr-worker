@@ -28,7 +28,7 @@ if docker image inspect $DANE_DOCKER_IMAGE &> /dev/null; then
 
 	echo "--- Ok RabbitMQ is running, now creating the DANE exchange... ---"
 
-	python src/dane_rmq_test 0
+	python scripts/dane_rmq_test 0
 
 	echo "--- Ok the DANE exchange is there, now starting the DANE worker... ---"
 
