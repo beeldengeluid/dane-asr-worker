@@ -10,6 +10,7 @@ from time import sleep
 import hashlib
 import codecs
 import ntpath
+from pathlib import Path
 
 #from work_processor import process_input_file
 
@@ -44,6 +45,10 @@ class asr_worker(DANE.base_classes.base_worker):
 			print('ERROR: Invalid config, aborting')
 			quit()
 
+		if not self.validate_data_dirs():
+			print('ERROR: data dirs not configured properly')
+			quit()
+
 		if config.DEBUG:
 			if not self.init_rabbitmq_container():
 				print('ERROR: Could not start in debug mode, RabbitMQ container could not be started, aborting...')
@@ -69,6 +74,28 @@ class asr_worker(DANE.base_classes.base_worker):
 
 	#TODO implement actual validation
 	def validate_config(self):
+		return True
+
+	def validate_data_dirs(self):
+		i_dir = Path(self.config.DOWNLOAD.LOCAL_DIR)
+		o_dir = Path(self.config.ASR_API.OUTPUT_DIR)
+
+		if not os.path.exists(i_dir.parent.absolute()):
+			print('{} does not exist'.format(i_dir.parent.absolute()))
+			return False
+
+		if not os.path.exists(o_dir.parent.absolute()):
+			print('{} does not exist'.format(o_dir.parent.absolute()))
+			return False
+
+		#make sure the input and output dirs are there
+		try:
+			os.mkdir(i_dir, 0o755)
+			print('created ASR input dir: {}'.format(self.config.DOWNLOAD.LOCAL_DIR))
+			os.mkdir(o_dir, 0o755)
+			print('created ASR output dir: {}'.format(self.config.ASR_API.OUTPUT_DIR))
+		except FileExistsError as e:
+			print(e)
 		return True
 
 	def __docker_container_runs(self, container_name):
