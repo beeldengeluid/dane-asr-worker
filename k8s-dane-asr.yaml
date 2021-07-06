@@ -1,24 +1,4 @@
 ---
-apiVersion: v1 # -------------- HOOK UP EXTERNAL ELASTICSEARCH ------------
-kind: Service
-metadata:
-  name: elasticsearch
-spec:
-  type: ClusterIP
-  ports:
-    - port: 9200
-      targetPort: 9200
----
-apiVersion: v1
-kind: Endpoints
-metadata:
-  name: elasticsearch
-subsets:
-  - addresses:
-    - ip: 11.22.33.44 #your (external) ES host
-    ports:
-      - port: 9200
----
 apiVersion: v1 # -------------- RUN RABBITMQ ------------------------------
 kind: Pod
 metadata:
@@ -191,7 +171,7 @@ spec:
     persistentVolumeClaim:
       claimName: asr-data-pvc
 ---
-apiVersion: v1
+apiVersion: v1 # CLAIM SOME SPACE FROM THE K8s CLUSTER (see k8s-cluster-requirements for the volume)
 kind: PersistentVolumeClaim
 metadata:
   name: asr-data-pvc

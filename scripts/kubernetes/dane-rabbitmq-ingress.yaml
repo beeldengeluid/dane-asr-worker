@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dane-rabbitmq-ingress
+spec:
+  rules:
+  - host: rabbitmq.dane.nl
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dane-rabbitmq-management
+            port:
+              number: 80

@@ -1,6 +1,14 @@
 # dane-asr-worker
 DANE worker for processing ASR (optimised for Dutch)
 
+## Switching to Kubernetes
+
+Currently DANE is being made compatible to run in Kubernetes. Here are some invaluable links to get that task done:
+
+- [How to use local docker images in Kubernetes](https://medium.com/bb-tutorials-and-thoughts/how-to-use-own-local-doker-images-with-minikube-2c1ed0b0968)
+- [Using codemeta](https://codemeta.github.io/)
+- [DNS utils to easily find hostname of services/pods](https://dev.to/vepo/finding-dns-for-kubernetes-service-3p0e)
+
 ## Architecture
 
 There are 3 components:
