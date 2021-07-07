@@ -134,9 +134,15 @@ spec:
   - name: kaldi-nl-api
     image: jblom/kaldi_nl_api:latest
     volumeMounts:
+    - name: dane-kaldi-api-cfg-mnt
+      mountPath: "/src/config"
+      readOnly: true
     - name: dane-pvc-mnt
       mountPath: "/mnt/dane-fs" #TODO fix the Dockerfile & code so the ASR API creates input-files & asr-output
   volumes:
+  - name: dane-kaldi-api-cfg-mnt
+    configMap:
+      name: dane-kaldi-api-cfg
   - name: dane-pvc-mnt
     persistentVolumeClaim:
       claimName: asr-data-pvc
