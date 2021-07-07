@@ -15,7 +15,7 @@ metadata:
   name: elasticsearch
 subsets:
   - addresses:
-    - ip: 44.242.32.23 #your (external) ES host
+    - ip: 44.242.32.23 #your (external) ES host TODO figure out nice way to make this a variable (env does not work)
     ports:
       - port: 9200
 ---
@@ -29,7 +29,7 @@ spec:
   volumeMode: Filesystem
   accessModes:
   - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Delete
+  persistentVolumeReclaimPolicy: Recycle
   storageClassName: local-storage
   local:
     path: /home/someuser/dane-mount # fill in a valid path on a Kubernetes node (the local host if using minikube)
@@ -41,3 +41,18 @@ spec:
           operator: In
           values:
           - minikube # note: change this when running on a proper k8s cluster
+---
+apiVersion: v1 # only for conveniently looking up the dns records for k8s services
+kind: Pod # kubectl exec dnsutils -- nslookup dane-rabbitmq-api
+metadata:
+  name: dnsutils
+  namespace: default
+spec:
+  containers:
+  - name: dnsutils
+    image: gcr.io/kubernetes-e2e-test-images/dnsutils:1.3
+    command:
+      - sleep
+      - "3600"
+    imagePullPolicy: IfNotPresent
+  restartPolicy: Always

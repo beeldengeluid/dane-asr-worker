@@ -3,7 +3,7 @@ import os
 from flask import request
 from flask_restx import Namespace, Resource, fields
 import logging
-from settings import LOG_NAME, MAIN_INPUT_DIR
+from config.settings import LOG_NAME, MAIN_INPUT_DIR
 from work_processor import process_input_file, run_simulation, poll_pid_status
 from urllib.parse import quote
 

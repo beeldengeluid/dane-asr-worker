@@ -133,6 +133,13 @@ spec:
   containers:
   - name: kaldi-nl-api
     image: jblom/kaldi_nl_api:latest
+    volumeMounts:
+    - name: dane-pvc-mnt
+      mountPath: "/mnt/dane-fs" #TODO fix the Dockerfile & code so the ASR API creates input-files & asr-output
+  volumes:
+  - name: dane-pvc-mnt
+    persistentVolumeClaim:
+      claimName: asr-data-pvc
 ---
 apiVersion: v1 # service that exposes the kaldi-nl-api for the DANE ASR worker
 kind: Service

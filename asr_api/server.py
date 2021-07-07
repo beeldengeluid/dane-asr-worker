@@ -4,7 +4,7 @@ from flask import request, Response
 
 import os
 import json
-from settings import APP_HOST, APP_PORT, PID_CACHE_DIR, LOG_DIR, LOG_NAME, LOG_LEVEL_CONSOLE, LOG_LEVEL_FILE, DEBUG
+from config.settings import APP_HOST, APP_PORT, PID_CACHE_DIR, LOG_DIR, LOG_NAME, LOG_LEVEL_CONSOLE, LOG_LEVEL_FILE, DEBUG
 from work_processor import process_input_file
 from apis import api
 from logging_util import init_logger
