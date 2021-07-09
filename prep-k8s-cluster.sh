@@ -17,5 +17,6 @@ kubectl apply -f k8s-cluster-requirements.yaml
 
 # create the configmaps (first make sure you have these settings!)
 
+kubectl create configmap dane-server-cfg --from-file [DANE-SERVER-HOME]/config.yml
 kubectl create configmap dane-asr-worker-cfg --from-file config.yml
 kubectl create configmap dane-kaldi-api-cfg --from-file asr_api/config/settings.py

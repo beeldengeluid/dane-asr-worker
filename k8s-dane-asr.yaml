@@ -123,6 +123,19 @@ spec:
             port:
               number: 80
 ---
+apiVersion: v1 # CLAIM SOME SPACE FROM THE K8s CLUSTER (see k8s-cluster-requirements for the volume)
+kind: PersistentVolumeClaim
+metadata:
+  name: asr-data-pvc
+spec:
+  storageClassName: local-storage
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 15Gi
+---
 apiVersion: v1 # -------------- SPECIFIC COMPONENTS FOR PROCESSING ASR -------------------------------
 kind: Pod
 metadata:
@@ -183,16 +196,3 @@ spec:
   - name: dane-pvc-mnt
     persistentVolumeClaim:
       claimName: asr-data-pvc
----
-apiVersion: v1 # CLAIM SOME SPACE FROM THE K8s CLUSTER (see k8s-cluster-requirements for the volume)
-kind: PersistentVolumeClaim
-metadata:
-  name: asr-data-pvc
-spec:
-  storageClassName: local-storage
-  volumeMode: Filesystem
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 15Gi
