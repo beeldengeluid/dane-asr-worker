@@ -88,7 +88,7 @@ spec:
   containers:
   - name: dane-server-api
     image: 917951871879.dkr.ecr.eu-west-1.amazonaws.com/dane-server-api:v1
-    imagePullPolicy: Never
+    imagePullPolicy: Always
     volumeMounts:
     - name: dane-server-mnt
       mountPath: "/root/.DANE"
@@ -152,6 +152,7 @@ spec:
   containers:
   - name: kaldi-nl-api
     image: 917951871879.dkr.ecr.eu-west-1.amazonaws.com/dane-kaldi-api:v1
+    imagePullPolicy: Always
     volumeMounts:
     - name: dane-kaldi-api-cfg-mnt
       mountPath: "/src/config"
@@ -190,7 +191,7 @@ spec:
   containers:
   - name: dane-asr-worker
     image: 917951871879.dkr.ecr.eu-west-1.amazonaws.com/dane-asr-worker:v1
-    imagePullPolicy: Never # Always
+    imagePullPolicy: Always #Never when working locally
     volumeMounts:
     - name: dane-cfg-mnt
       mountPath: "/root/.DANE"
