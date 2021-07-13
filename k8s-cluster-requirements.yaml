@@ -40,7 +40,7 @@ spec:
         - key: kubernetes.io/hostname
           operator: In
           values:
-          - minikube # note: change this when running on a proper k8s cluster
+          - minikube # Note: run kubectl get nodes to see what nodes you have running
 ---
 apiVersion: v1 # only for conveniently looking up the dns records for k8s services
 kind: Pod # kubectl exec dnsutils -- nslookup dane-rabbitmq-api
@@ -56,3 +56,12 @@ spec:
       - "3600"
     imagePullPolicy: IfNotPresent
   restartPolicy: Always
+---
+apiVersion: v1 #stores the login credentials taken from the minikube .docker/config.json (login to minikube)
+kind: Secret #scp -i $(minikube ssh-key) docker@$(minkube ip):.docker/config.json .docker/config.json
+metadata:
+  name: xomg-docker-registry # kubectl create secret generic xomg-docker-registry --from-file=.dockerconfigjson=.docker/config.json --type=kubernetes.io/dockerconfigjson
+data: #kubectl create secret docker-registry xomg-docker-registry --docker-server=dockerhub.rdlabs.beeldengeluid.nl --docker-user-name=xxx --docker-password=yyy
+  .dockerconfigjson: .docker/config.json | base64
+type: kubernetes.io/dockerconfigjson
+
