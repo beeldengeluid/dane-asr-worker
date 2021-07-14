@@ -57,9 +57,158 @@ ELASTICSEARCH:
 
 # Kubernetes
 
-## Required Docker images
+All software components are available as docker images and are present in our image registry. Therefore it is possible to go ahead and run the `k8s-dane-asr.yaml` chart after you've prepared your k8s cluster with the `k8s-cluster-requirements.yaml`
 
-The following Docker images are available in the beeldengeluid en CLARIAH organisations on GitHub. In case you require these images to be updated, the following sub sections are worth reading.
+## Preparing your k8s cluster
+
+To properly run, the DANE asr environment requires the following from your Kubernetes cluster:
+
+- A persistent volume with at least 20Gb of storage
+- A running Elasticsearch cluster that is accessible via a public IP
+
+Now with this in mind, check the contents of the `k8s-cluster-requirements.yaml` and make the necessary changes.
+
+**Note**: the `dnsutils` `Pod` is optional, but is useful for easily figuring out what the DNS name is for each of the `Services` defined in `k8s-dane-asr.yaml`.
+
+
+
+## Creating ConfigMaps
+
+Before being able to successfullt run everything in `k8s-dane-asr.yaml` it is necessary to create `ConfigMaps` for the following components:
+
+### DANE ASR worker
+
+**File**: `DANE-asr-worker/config.yml`
+
+```
+DEBUG: false # deprecated option
+LOGGING:
+    LEVEL: 'DEBUG'
+    DIR: 'logs'
+RABBITMQ:
+    HOST: 'dane-rabbitmq-api.default.svc.cluster.local'
+    PORT: 5672
+    EXCHANGE: 'DANE-exchange'
+    RESPONSE_QUEUE: 'DANE-response-queue'
+    USER: 'guest'
+    PASSWORD: 'guest'
+ELASTICSEARCH:
+    HOST: ['elasticsearch']
+    PORT: 9200
+    #USER: 'elastic'
+    #PASSWORD: 'changeme'
+    SCHEME: 'http'
+DOCKER:
+    ASR_CONTAINER: 'dane-asr'
+    RABBITMQ_CONTAINER: 'dane-rmq'
+ASR_API:
+    HOST: 'dane-asr-api.default.svc.cluster.local'
+    PORT: 3023
+    OUTPUT_DIR: '/mnt/dane-fs/asr-output'
+    SIMULATE: false
+    WAIT_FOR_COMPLETION: true
+DOWNLOAD:
+    USE_DANE_DOWNLOADER: false
+    LOCAL_DIR: '/mnt/dane-fs/input-files'
+```
+
+**Note**: The `RABBITMQ.HOST` and `ASR_API.HOST` should be fine if you want to run everything as is in the default namespace of your Kubernetes cluster. If however your cluster is somehow differently setup, you can check the DNS names for these two Services with:
+
+```
+kubectl exec dnsutils -- nslookup dane-rabbitmq-api
+kubectl exec dnsutils -- nslookup dane-asr-api
+```
+
+### KaldiNL API
+
+**File**: `DANE-asr-worker/asr_api/config/settings.py`
+
+```
+DEBUG = True # False
+
+APP_HOST = '0.0.0.0'
+APP_PORT = 3023
+
+MAIN_INPUT_DIR = '/mnt/dane-fs/input-files' # MUST match directory in DANE-asr-worker/asr_api/Dockerfile
+
+ASR_OUTPUT_DIR = '/mnt/dane-fs/asr-output' # MUST match directory in DANE-asr-worker/asr_api/Dockerfile
+ASR_PACKAGE_NAME = 'asr-features.tar.gz'
+ASR_WORD_JSON_FILE = 'words.json'
+
+KALDI_NL_DIR = '/usr/local/opt/kaldi_nl' #'/opt/Kaldi_NL'
+KALDI_NL_DECODER = 'decode_OH.sh'
+
+PID_CACHE_DIR = 'pid-cache' # relative from the server.py dir
+
+LOG_DIR = "log" # relative from the server.py dir
+LOG_NAME = "asr-service.log"
+LOG_LEVEL_CONSOLE = "DEBUG" # Levels: NOTSET - DEBUG - INFO - WARNING - ERROR - CRITICAL
+LOG_LEVEL_FILE = "DEBUG" # Levels: NOTSET - DEBUG - INFO - WARNING - ERROR - CRITICAL
+```
+
+### DANE server
+
+The DANE server Pod must be connected to the same RabbitMQ and Elasticsearch as the DANE-asr-worker
+
+**File** (in DANE-server repo): `DANE-server/config.yml`
+
+
+```
+DANE:
+    API_URL: 'http://localhost:5500/DANE/'
+    MANAGE_URL: 'http://localhost:5500/manage/'
+RABBITMQ:
+    HOST: 'dane-rabbitmq-api.default.svc.cluster.local'
+    PORT: 5672
+    EXCHANGE: 'DANE-exchange'
+    RESPONSE_QUEUE: 'DANE-response-queue'
+    USER: 'guest'
+    PASSWORD: 'guest'
+ELASTICSEARCH:
+    HOST: ['elasticsearch']
+    PORT: 9200
+    USER: 'elastic'
+    PASSWORD: 'changeme'
+    SCHEME: 'http'
+```
+
+
+## Running the DANE ASR environment
+
+After you've created all required `ConfigMaps` you can run the DANE ASR environment using:
+
+```
+kubectl apply -f k8s-dane-asr.yaml
+```
+
+If you have applied this file before, e.g. for figuring out the DNS name of some of the Services, then it might be possible that some Pods won't be running properly.
+
+In any case it is now good to check if your Pods are all running fine with:
+
+```
+kubectl get pods
+```
+
+If some Pods are not running properly you can find the cause with these 2 commands:
+
+```
+kubectl logs {pod-name}
+kubectl describe pod {pod-name}
+```
+
+It is very well possible you need to delete the failing Pods and then reapply the `k8s-dane-asr.yaml` again. In some cases this is necessary, since k8s does not always self-heal.
+
+In some cases a Pod won't terminate (after deleting) and it might be necessary to forecefully delete it:
+
+```
+kubectl delete pod {pod-name} --grace-period=0 --force
+```
+
+# Working on the core images
+
+The following Docker images are available in the beeldengeluid en CLARIAH organisations on GitHub.
+
+In case you require these images to be updated locally, or in the image registry, the following sub sections are worth reading.
 
 ### DANE server (API):
 
@@ -110,6 +259,7 @@ The above `docker build` commands only show how to build the images on your loca
 docker tag dane-asr-worker {aws-ecr-server}/dane-asr-worker:{version}
 ```
 
+For the {aws-ecr-server} ask your devops engineer.
 For `{version}` follow the `{major version}.{minor version}` approach.
 
 
