@@ -1,0 +1,207 @@
+---
+apiVersion: v1 # -------------- RUN RABBITMQ ------------------------------
+kind: Pod
+metadata:
+  name: dane-rabbitmq-server-pod
+  labels:
+    app: dane-rabbitmq
+spec:
+  containers:
+  - name: dane-rabbitmq-server
+    image: rabbitmq:3-management
+    ports:
+    - containerPort: 15672
+    - containerPort: 5672
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dane-rabbitmq-management
+spec:
+  selector:
+    app: dane-rabbitmq
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 15672
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dane-rabbitmq-api
+spec:
+  selector:
+    app: dane-rabbitmq
+  ports:
+    - protocol: TCP
+      port: 5672
+      targetPort: 5672
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dane-rabbitmq-ingress
+spec:
+  rules:
+  - host: rabbitmq.dane.nl
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dane-rabbitmq-management
+            port:
+              number: 80
+---
+apiVersion: v1 # -------------- RUN DANE SERVER (TASK SCHEDULER ONLY) ------------
+kind: Pod
+metadata:
+  name: dane-server-pod
+  labels:
+    app: dane-server
+spec:
+  imagePullSecrets:
+    - name: xomg-aws-registry
+  containers:
+  - name: dane-server
+    image: 917951871879.dkr.ecr.eu-west-1.amazonaws.com/dane-server:v1
+    imagePullPolicy: Always
+    volumeMounts:
+    - name: dane-server-mnt
+      mountPath: "/root/.DANE"
+      readOnly: true
+  volumes:
+  - name: dane-server-mnt
+    configMap:
+      name: dane-server-cfg
+---
+apiVersion: v1 # -------------- RUN DANE SERVER API -------------------------------
+kind: Pod
+metadata:
+  name: dane-server-api-pod
+  labels:
+    app: dane-server-api
+spec:
+  imagePullSecrets:
+    - name: xomg-aws-registry
+  containers:
+  - name: dane-server-api
+    image: 917951871879.dkr.ecr.eu-west-1.amazonaws.com/dane-server-api:v1
+    imagePullPolicy: Always
+    volumeMounts:
+    - name: dane-server-mnt
+      mountPath: "/root/.DANE"
+      readOnly: true
+  volumes:
+  - name: dane-server-mnt
+    configMap:
+      name: dane-server-cfg
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dane-server-api-service
+spec:
+  selector:
+    app: dane-server-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5500
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dane-server-ingress
+spec:
+  rules:
+  - host: api.dane.nl
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dane-server-api-service
+            port:
+              number: 80
+---
+apiVersion: v1 # CLAIM SOME SPACE FROM THE K8s CLUSTER (see k8s-cluster-requirements for the volume)
+kind: PersistentVolumeClaim
+metadata:
+  name: asr-data-pvc
+spec:
+  storageClassName: local-storage
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 15Gi
+---
+apiVersion: v1 # -------------- SPECIFIC COMPONENTS FOR PROCESSING ASR -------------------------------
+kind: Pod
+metadata:
+  name: kaldi-nl-api
+  labels:
+    app: dane-asr-api
+spec:
+  imagePullSecrets:
+    - name: xomg-aws-registry
+  containers:
+  - name: kaldi-nl-api
+    image: 917951871879.dkr.ecr.eu-west-1.amazonaws.com/dane-kaldi-api:v1
+    imagePullPolicy: Always
+    volumeMounts:
+    - name: dane-kaldi-api-cfg-mnt
+      mountPath: "/src/config"
+      readOnly: true
+    - name: dane-pvc-mnt
+      mountPath: "/mnt/dane-fs" #TODO fix the Dockerfile & code so the ASR API creates input-files & asr-output
+  volumes:
+  - name: dane-kaldi-api-cfg-mnt
+    configMap:
+      name: dane-kaldi-api-cfg
+  - name: dane-pvc-mnt
+    persistentVolumeClaim:
+      claimName: asr-data-pvc
+---
+apiVersion: v1 # service that exposes the kaldi-nl-api for the DANE ASR worker
+kind: Service
+metadata:
+  name: dane-asr-api
+spec:
+  selector:
+    app: dane-asr-api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3023
+---
+apiVersion: v1 # DANE worker
+kind: Pod
+metadata:
+  name: dane-asr-worker
+  labels:
+    app: dane-asr
+spec:
+  imagePullSecrets:
+    - name: xomg-aws-registry
+  containers:
+  - name: dane-asr-worker
+    image: 917951871879.dkr.ecr.eu-west-1.amazonaws.com/dane-asr-worker:v1
+    imagePullPolicy: Always #Never when working locally
+    volumeMounts:
+    - name: dane-cfg-mnt
+      mountPath: "/root/.DANE"
+      readOnly: true
+    - name: dane-pvc-mnt
+      mountPath: "/mnt/dane-fs"
+  volumes:
+  - name: dane-cfg-mnt
+    configMap:
+      name: dane-asr-worker-cfg
+  - name: dane-pvc-mnt
+    persistentVolumeClaim:
+      claimName: asr-data-pvc

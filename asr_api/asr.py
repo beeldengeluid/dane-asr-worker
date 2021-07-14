@@ -5,7 +5,7 @@ import glob
 import json
 import logging
 
-from settings import ASR_OUTPUT_DIR, ASR_PACKAGE_NAME, ASR_WORD_JSON_FILE, KALDI_NL_DIR, KALDI_NL_DECODER, LOG_NAME
+from config.settings import ASR_OUTPUT_DIR, ASR_PACKAGE_NAME, ASR_WORD_JSON_FILE, KALDI_NL_DIR, KALDI_NL_DECODER, LOG_NAME
 
 """
 This module contains functions for running audio files through Kaldi_NL to generate a speech transcript.

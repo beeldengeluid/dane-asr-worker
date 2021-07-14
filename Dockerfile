@@ -1,39 +1,17 @@
-FROM proycon/lamachine:core
-MAINTAINER Maarten van Gompel <proycon@anaproy.nl>
-MAINTAINER Jaap Blom <jblom@beeldengeluid.nl>
-LABEL description="A LaMachine installation with Kaldi NL and Oral History (CLST)"
-#RUN lamachine-config lm_base_url https://your.domain.here
-#RUN lamachine-config force_https yes
-#RUN lamachine-config private true
-#RUN lamachine-config maintainer_name "Your name here"
-#RUN lamachine-config maintainer_mail "your@mail.here"
-RUN lamachine-add kaldi_nl
-RUN lamachine-add oralhistory
-RUN lamachine-update
+FROM python:3
 
-#install DANE worker dependencies
-RUN sudo apt-get update
+COPY ./ /src
+COPY requirements.txt /src
 
-# intall ffmpeg, so the input video files will be transcoded to mp3
-RUN sudo apt-get install -y \
-    ffmpeg
+# override this config in Kubernetes with a ConfigMap mounted as a volume to /root/.DANE
+RUN mkdir /root/.DANE
+COPY config.yml /root/.DANE
 
-# add the Python code & install the required libs
-COPY ./src/docker_src /src
-COPY requirements.txt /src/
-RUN pip3 install -r /src/requirements.txt
+# create the mountpoint for storing /input-files and /asr-output dirs
+RUN mkdir /mnt/dane-fs
 
-# create the input and output folders, which should match your local folders in [THIS REPO BASE]/mount/*
-# see start-container.sh how these folders are mounted on container creation
-RUN sudo mkdir /input-files
-RUN sudo mkdir /output-files
-RUN sudo mkdir /asr-output
-RUN sudo mkdir /src/log && sudo chmod -R 777 /src/log
-RUN sudo mkdir /src/pid-cache && sudo chmod -R 777 /src/pid-cache
+WORKDIR /src
 
-#make sure to set the KALDI_ROOT or kaldi_NL won't be able to locate it
-ENV KALDI_ROOT=/usr/local/opt/kaldi
+RUN pip install --no-cache-dir -r requirements.txt
 
-#start the dane worker
-#CMD ["python3","-u","/src/worker.py"]
-CMD ["python3","-u","/src/server.py"]
+CMD [ "python", "/src/worker.py" ]

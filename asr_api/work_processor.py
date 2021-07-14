@@ -6,7 +6,7 @@ import json
 from time import sleep
 from asr import run_asr, process_asr_output, create_word_json
 from transcode import transcode_to_mp3
-from settings import LOG_NAME, PID_CACHE_DIR
+from config.settings import LOG_NAME, PID_CACHE_DIR
 
 """
 This module contains all the specific processing functions for the DANE-asr-worker. The reason

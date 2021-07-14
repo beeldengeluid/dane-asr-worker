@@ -1,0 +1,67 @@
+---
+apiVersion: v1 # -------------- HOOK UP EXTERNAL ELASTICSEARCH ------------------------------------
+kind: Service
+metadata:
+  name: elasticsearch
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9200
+      targetPort: 9200
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: elasticsearch
+subsets:
+  - addresses:
+    - ip: 44.242.32.23 #your (external) ES host TODO figure out nice way to make this a variable (env does not work)
+    ports:
+      - port: 9200
+---
+apiVersion: v1 # -------------- DEFINE A VOLUME FOR THE DANE FS (READING INPUT, WRITING OUTPUT) ---
+kind: PersistentVolume
+metadata:
+  name: asr-data-volume
+spec:
+  capacity:
+    storage: 20Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Recycle
+  storageClassName: local-storage
+  local:
+    path: /home/someuser/dane-mount # fill in a valid path on a Kubernetes node (the local host if using minikube)
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - minikube # Note: run kubectl get nodes to see what nodes you have running
+---
+apiVersion: v1 # only for conveniently looking up the dns records for k8s services
+kind: Pod # kubectl exec dnsutils -- nslookup dane-rabbitmq-api
+metadata:
+  name: dnsutils
+  namespace: default
+spec:
+  containers:
+  - name: dnsutils
+    image: gcr.io/kubernetes-e2e-test-images/dnsutils:1.3
+    command:
+      - sleep
+      - "3600"
+    imagePullPolicy: IfNotPresent
+  restartPolicy: Always
+---
+apiVersion: v1 #stores the login credentials taken from the minikube .docker/config.json (login to minikube)
+kind: Secret #scp -i $(minikube ssh-key) docker@$(minkube ip):.docker/config.json .docker/config.json
+metadata:
+  name: xomg-docker-registry # kubectl create secret generic xomg-docker-registry --from-file=.dockerconfigjson=.docker/config.json --type=kubernetes.io/dockerconfigjson
+data: #kubectl create secret docker-registry xomg-docker-registry --docker-server=dockerhub.rdlabs.beeldengeluid.nl --docker-user-name=xxx --docker-password=yyy
+  .dockerconfigjson: .docker/config.json | base64
+type: kubernetes.io/dockerconfigjson
+

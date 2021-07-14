@@ -10,6 +10,10 @@ from time import sleep
 import hashlib
 import codecs
 import ntpath
+from pathlib import Path
+
+import logging
+from logging.handlers import TimedRotatingFileHandler
 
 #from work_processor import process_input_file
 
@@ -30,7 +34,9 @@ class asr_worker(DANE.base_classes.base_worker):
 
 	def __init__(self, config):
 		self.config = config
-		 # we specify a queue name because every worker of this type should
+		self.logger = self.init_logger(self.config)
+
+		# we specify a queue name because every worker of this type should
 		# listen to the same queue
 		self.__queue_name = 'ASR' #this is the queue that receives the work and NOT the reply queue
 		self.__binding_key = "#.ASR" #['Video.ASR', 'Sound.ASR']#'#.ASR'
@@ -41,20 +47,27 @@ class asr_worker(DANE.base_classes.base_worker):
 		self.SIMULATE_ASR_SERVICE = config.ASR_API.SIMULATE
 
 		if not self.validate_config():
-			print('ERROR: Invalid config, aborting')
+			self.logger.debug('ERROR: Invalid config, aborting')
 			quit()
 
+		if not self.validate_data_dirs():
+			self.logger.debug('ERROR: data dirs not configured properly')
+			quit()
+
+		# Note: deprecated, remove this later on
 		if config.DEBUG:
 			if not self.init_rabbitmq_container():
-				print('ERROR: Could not start in debug mode, RabbitMQ container could not be started, aborting...')
+				self.logger.debug('ERROR: Could not start in debug mode, RabbitMQ container could not be started, aborting...')
 				quit()
 			else:
-				print('great!')
+				self.logger.debug('great!')
 
+		"""
 		if not self.init_asr_container():
 			self.SIMULATE_ASR_SERVICE = True
-			print('ERROR: Could not start speech recognition service, continuing in simulation mode')
+			self.logger.debug('ERROR: Could not start speech recognition service, continuing in simulation mode')
 			#quit()
+		"""
 
 		super().__init__(
 			self.__queue_name,
@@ -65,40 +78,88 @@ class asr_worker(DANE.base_classes.base_worker):
 			False #no_api
 		)
 
+	def init_logger(self, cfg):
+		logger = logging.getLogger('DANE-ASR')
+		logger.setLevel(cfg.LOGGING.LEVEL)
+		# create file handler which logs to file
+		if not os.path.exists(os.path.realpath(cfg.LOGGING.DIR)):
+			os.makedirs(os.path.realpath(cfg.LOGGING.DIR), exist_ok=True)
+
+		fh = TimedRotatingFileHandler(os.path.join(
+			os.path.realpath(cfg.LOGGING.DIR), "DANE-ASR-worker.log"),
+			when='W6', # start new log on sunday
+			backupCount=3)
+		fh.setLevel(cfg.LOGGING.LEVEL)
+		# create console handler
+		ch = logging.StreamHandler()
+		ch.setLevel(cfg.LOGGING.LEVEL)
+		# create formatter and add it to the handlers
+		formatter = logging.Formatter(
+				'%(asctime)s - %(levelname)s - %(message)s',
+				"%Y-%m-%d %H:%M:%S")
+		fh.setFormatter(formatter)
+		ch.setFormatter(formatter)
+		# add the handlers to the logger
+		logger.addHandler(fh)
+		logger.addHandler(ch)
+		return logger
+
 	"""----------------------------------INIT VALIDATION FUNCTIONS ---------------------------------"""
 
 	#TODO implement actual validation
 	def validate_config(self):
 		return True
 
+	def validate_data_dirs(self):
+		i_dir = Path(self.config.DOWNLOAD.LOCAL_DIR)
+		o_dir = Path(self.config.ASR_API.OUTPUT_DIR)
+
+		if not os.path.exists(i_dir.parent.absolute()):
+			self.logger.debug('{} does not exist'.format(i_dir.parent.absolute()))
+			return False
+
+		if not os.path.exists(o_dir.parent.absolute()):
+			self.logger.debug('{} does not exist'.format(o_dir.parent.absolute()))
+			return False
+
+		#make sure the input and output dirs are there
+		try:
+			os.mkdir(i_dir, 0o755)
+			self.logger.debug('created ASR input dir: {}'.format(self.config.DOWNLOAD.LOCAL_DIR))
+			os.mkdir(o_dir, 0o755)
+			self.logger.debug('created ASR output dir: {}'.format(self.config.ASR_API.OUTPUT_DIR))
+		except FileExistsError as e:
+			self.logger.debug(e)
+		return True
+
 	def __docker_container_runs(self, container_name):
 		cmd = ['docker', 'container', 'inspect', '-f', "'{{.State.Status}}'", container_name]
-		print(' '.join(cmd))
+		self.logger.debug(' '.join(cmd))
 		process = subprocess.Popen(' '.join(cmd), stdout=subprocess.PIPE, shell=True)
 		stdout = process.communicate()[0]  # wait until finished. Remove stdout stuff if letting run in background and continue.
 		return str(stdout).find('running') != -1
 
 	def init_rabbitmq_container(self):
-		print('Checking if the RabbitMQ container (named {0}) is running'.format(self.config.DOCKER.RABBITMQ_CONTAINER))
+		self.logger.debug('Checking if the RabbitMQ container (named {0}) is running'.format(self.config.DOCKER.RABBITMQ_CONTAINER))
 		return self.__docker_container_runs(self.config.DOCKER.RABBITMQ_CONTAINER)
 
 	def init_asr_container(self):
-		print('Checking if the ASR container (named {0}) is running'.format(self.config.DOCKER.ASR_CONTAINER))
+		self.logger.debug('Checking if the ASR container (named {0}) is running'.format(self.config.DOCKER.ASR_CONTAINER))
 		return self.__docker_container_runs(self.config.DOCKER.ASR_CONTAINER)
 
 	"""----------------------------------INTERACTION WITH DANE SERVER ---------------------------------"""
 
 	#DANE callback function, called whenever there is a job for this worker
 	def callback(self, task, doc):
-		print('receiving a task from the DANE (mock) server!')
-		print(task)
-		print(doc)
+		self.logger.debug('receiving a task from the DANE (mock) server!')
+		self.logger.debug(task)
+		self.logger.debug(doc)
 
 		# step 1 (temporary, until DOWNLOAD depency accepts params to override download dir)
 		input_file = self.fetch_downloaded_content(doc) if self.config.DOWNLOAD.USE_DANE_DOWNLOADER else None
 
 		if input_file == None:
-			print('The file was not downloaded by the DANE worker, downloading it myself...')
+			self.logger.debug('The file was not downloaded by the DANE worker, downloading it myself...')
 			input_file = self.download_content(doc)
 			if input_file == None:
 				return {'state' : 500, 'message' : 'Could not download the document content'}
@@ -108,7 +169,7 @@ class asr_worker(DANE.base_classes.base_worker):
 
 		# step 3 submit the input file to the ASR service
 		asr_result = self.submit_asr_job(input_file, input_hash)
-		print(asr_result)
+		self.logger.debug(asr_result)
 
 		# step 4 generate a transcript from the ASR service's output
 		if asr_result['state'] == 200:
@@ -126,7 +187,7 @@ class asr_worker(DANE.base_classes.base_worker):
 	#Note: the supplied transcript is EXACTLY the same as what we use in layer__asr in the collection indices,
 	#meaning it should be quite trivial to append the DANE output into a collection
 	def save_to_dane_index(self, task, transcript):
-		print('saving results to DANE, task id={0}'.format(task._id))
+		self.logger.debug('saving results to DANE, task id={0}'.format(task._id))
 		#TODO figure out the multiple lines per transcript (refresh my memory)
 		r = Result(self.generator, payload={'transcript' : transcript}, api=self.handler)
 		r.save(task._id)
@@ -140,7 +201,7 @@ class asr_worker(DANE.base_classes.base_worker):
 
 		#split up the file in asset_id (used for creating a subfolder in the output) and extension
 		asset_id, extension = os.path.splitext(file_name)
-		print('working with this asset ID {}'.format(asset_id))
+		self.logger.debug('working with this asset ID {}'.format(asset_id))
 		return asset_id
 
 	def get_asr_output_dir(self, asset_id):
@@ -154,15 +215,15 @@ class asr_worker(DANE.base_classes.base_worker):
 	# https://www.openbeelden.nl/files/29/29494.29451.WEEKNUMMER243-HRE00015742.mp4
 	def download_content(self, doc):
 		if not doc.target or not 'url' in doc.target or not doc.target['url']:
-			print('No url found in DANE doc')
+			self.logger.debug('No url found in DANE doc')
 			return None
 
-		print('downloading {}'.format(doc.target['url']))
+		self.logger.debug('downloading {}'.format(doc.target['url']))
 		fn = os.path.basename(urlparse(doc.target['url']).path)
 		#fn = unquote(fn)
 		#fn = doc.target['url'][doc.target['url'].rfind('/') +1:]
 		output_file = os.path.join(self.config.DOWNLOAD.LOCAL_DIR, fn)
-		print('saving to file {}'.format(fn))
+		self.logger.debug('saving to file {}'.format(fn))
 
 		# download if the file is not present (preventing unnecessary downloads)
 		if not os.path.exists(output_file):
@@ -173,20 +234,20 @@ class asr_worker(DANE.base_classes.base_worker):
 		return fn
 
 	def fetch_downloaded_content(self, doc):
-		print('checking download worker output')
+		self.logger.debug('checking download worker output')
 		try:
 			possibles = self.handler.searchResult(doc._id, 'DOWNLOAD')
-			print(possibles)
+			self.logger.debug(possibles)
 			return possibles[0].payload['file_path']
 		except KeyError as e:
-			print(e)
+			self.logger.debug(e)
 
 		return None
 
 	"""----------------------------------INTERACT WITH ASR SERVIVCE (DOCKER CONTAINER) --------------------------"""
 
 	def submit_asr_job(self, input_file, input_hash):
-		print('Going to submit {} to the ASR service, using PID={}'.format(input_file, input_hash))
+		self.logger.debug('Going to submit {} to the ASR service, using PID={}'.format(input_file, input_hash))
 		try:
 			dane_asr_api_url = 'http://{}:{}/api/{}/{}?input_file={}&wait_for_completion={}&simulate={}'.format(
 				self.config.ASR_API.HOST,
@@ -197,7 +258,7 @@ class asr_worker(DANE.base_classes.base_worker):
 				'1' if self.config.ASR_API.WAIT_FOR_COMPLETION else '0',
 				'1' if self.SIMULATE_ASR_SERVICE else '0'
 			)
-			print(dane_asr_api_url)
+			self.logger.debug(dane_asr_api_url)
 			resp = requests.put(dane_asr_api_url)
 		except requests.exceptions.ConnectionError as e:
 			return {'state': 500, 'message': 'Failure: could not connect to the ASR service'}
@@ -205,16 +266,16 @@ class asr_worker(DANE.base_classes.base_worker):
 		#return the result right away if in synchronous mode
 		if self.config.ASR_API.WAIT_FOR_COMPLETION:
 			if resp.status_code == 200:
-				print('The ASR service is done, returning the results')
+				self.logger.debug('The ASR service is done, returning the results')
 				data = json.loads(resp.text)
 				return data
 			else:
-				print('error returned')
-				print(resp.text)
+				self.logger.debug('error returned')
+				self.logger.debug(resp.text)
 				return {'state': 500, 'message': 'Failure: the ASR service returned an error'}
 
 		#else start polling the ASR service, using the input_hash for reference (TODO synch with asset_id)
-		print('Polling the ASR service to check when it is finished')
+		self.logger.debug('Polling the ASR service to check when it is finished')
 		while(True):
 			resp = requests.get('http://{0}:{1}/api/{2}/{3}'.format(
 				self.config.ASR_API.HOST,
@@ -244,7 +305,7 @@ class asr_worker(DANE.base_classes.base_worker):
 
 	#mount/asr-output/1272-128104-0000
 	def asr_output_to_transcript(self, asr_output_dir):
-		print('generating a transcript from the ASR output in: {0}'.format(asr_output_dir))
+		self.logger.debug('generating a transcript from the ASR output in: {0}'.format(asr_output_dir))
 		transcriptions = None
 		if os.path.exists(asr_output_dir):
 			try:
@@ -254,13 +315,13 @@ class asr_worker(DANE.base_classes.base_worker):
 				with codecs.open(os.path.join(asr_output_dir, '1Best.txt'), encoding="utf-8") as asr_file:
 					transcriptions = self.__parseASRResults(asr_file, times)
 			except EnvironmentError as e:  # OSError or IOError...
-				print(os.strerror(e.errno))
+				self.logger.debug(os.strerror(e.errno))
 
 			# Clean up the extracted dir
 			#shutil.rmtree(asr_output_dir)
-			#print("Cleaned up folder {}".format(asr_output_dir))
+			#self.logger.debug("Cleaned up folder {}".format(asr_output_dir))
 		else:
-			print('Error: cannot generate transcript; ASR output dir does not exist')
+			self.logger.debug('Error: cannot generate transcript; ASR output dir does not exist')
 
 		return transcriptions
 
@@ -280,7 +341,7 @@ class asr_worker(DANE.base_classes.base_worker):
 
 			# Check number of words matches the number of word_times
 			if not len(word_times) == num_words:
-				print("Number of words does not match word-times for file: {}, "
+				self.logger.debug("Number of words does not match word-times for file: {}, "
 							   "current position in file: {}".format(asr_file.name, cur_pos))
 
 			# extract the carrier and fragment ID
@@ -319,7 +380,6 @@ class asr_worker(DANE.base_classes.base_worker):
 # Start the worker
 if __name__ == '__main__':
 	w = asr_worker(cfg)
-	print(' # Initialising worker. Ctrl+C to exit')
 	try:
 		w.run()
 	except (KeyboardInterrupt, SystemExit):
