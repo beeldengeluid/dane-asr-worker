@@ -112,6 +112,12 @@ DOWNLOAD:
     LOCAL_DIR: '/mnt/dane-fs/input-files'
 ```
 
+After you've created this file, create a ConfigMap from it (from this repo's root dir):
+
+```
+kubectl create configmap dane-asr-worker-cfg --from-file config.yml
+```
+
 **Note**: The `RABBITMQ.HOST` and `ASR_API.HOST` should be fine if you want to run everything as is in the default namespace of your Kubernetes cluster. If however your cluster is somehow differently setup, you can check the DNS names for these two Services with:
 
 ```
@@ -146,6 +152,12 @@ LOG_LEVEL_CONSOLE = "DEBUG" # Levels: NOTSET - DEBUG - INFO - WARNING - ERROR - 
 LOG_LEVEL_FILE = "DEBUG" # Levels: NOTSET - DEBUG - INFO - WARNING - ERROR - CRITICAL
 ```
 
+After you've created this file, create a ConfigMap from it (from this repo's root dir):
+
+```
+kubectl create configmap dane-kaldi-api-cfg --from-file ./asr_api/config/settings.py
+```
+
 ### DANE server
 
 The DANE server Pod must be connected to the same RabbitMQ and Elasticsearch as the DANE-asr-worker
@@ -171,6 +183,24 @@ ELASTICSEARCH:
     PASSWORD: 'changeme'
     SCHEME: 'http'
 ```
+
+After you've created this file, create a ConfigMap from it (assuming you've put it in your local version of DANE-server, but somewhere else is totally fine of course):
+
+```
+kubectl create configmap dane-server-cfg --from-file {DANE-server}/config.yml
+```
+
+### Creating secret for private registry
+
+Since the current registry is a private AWS ECR, it is necessary to create a k8s `Secret` before the configured `Pods` are able to pull the images from it. You can do this with:
+
+```
+kubectl create secret docker-registry xomg-aws-registry --docker-server={aws-server} --docker-username=AWS --docker-password={password}
+```
+
+The `{aws-server}` can be found in the `k8s-dane-asr.yaml` and always ends with `.dkr.ecr.eu-west-1.amazonaws.com`.
+
+The `{password}` needs to be requested from our devops engineer.
 
 
 ## Running the DANE ASR environment
