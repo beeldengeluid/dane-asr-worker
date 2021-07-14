@@ -107,7 +107,7 @@ The above `docker build` commands only show how to build the images on your loca
 
 
 ```
-docker tag dane-asr-worker 917951871879.dkr.ecr.eu-west-1.amazonaws.com/dane-asr-worker:{version}
+docker tag dane-asr-worker {aws-ecr-server}/dane-asr-worker:{version}
 ```
 
 For `{version}` follow the `{major version}.{minor version}` approach.

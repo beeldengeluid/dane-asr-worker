@@ -13,4 +13,4 @@ kubectl create configmap dane-kaldi-api-cfg --from-file asr_api/config/settings.
 
 # create the secret used to access the docker registry in AWS (referred to in imagePullSecrets)
 
-create secret docker-registry xomg-aws-registry --docker-server={aws-server} --docker-username=AWS --docker-password={password}
+kubectl create secret docker-registry xomg-aws-registry --docker-server={aws-server} --docker-username=AWS --docker-password={password}
