@@ -25,9 +25,12 @@ RUN pip3 install -r /src/requirements.txt
 
 # create the input and output folders, which should match your local folders in [THIS REPO BASE]/mount/*
 # see start-container.sh how these folders are mounted on container creation
-RUN sudo mkdir /mnt/dane-fs
-RUN sudo mkdir /mnt/dane-fs/input-files
-RUN sudo mkdir /mnt/dane-fs/asr-output
+
+# the input/output directories (for ASR) are created by the DANE-asr-worker, so this container does not have to anymore
+#RUN sudo mkdir /mnt/dane-fs
+#RUN sudo mkdir /mnt/dane-fs/input-files
+#RUN sudo mkdir /mnt/dane-fs/asr-output
+
 RUN sudo mkdir /src/log && sudo chmod -R 777 /src/log
 RUN sudo mkdir /src/pid-cache && sudo chmod -R 777 /src/pid-cache
 

@@ -126,6 +126,10 @@ class asr_worker(DANE.base_classes.base_worker):
 		try:
 			os.mkdir(i_dir, 0o755)
 			self.logger.debug('created ASR input dir: {}'.format(self.config.DOWNLOAD.LOCAL_DIR))
+		except FileExistsError as e:
+			self.logger.debug(e)
+
+		try:
 			os.mkdir(o_dir, 0o755)
 			self.logger.debug('created ASR output dir: {}'.format(self.config.ASR_API.OUTPUT_DIR))
 		except FileExistsError as e:
