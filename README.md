@@ -276,7 +276,7 @@ In case you're working on this ASR worker and running your local k8s cluster usi
 #    - name: xomg-aws-registry
   containers:
   - name: dane-asr-worker
-    image: dane-asr-worker # 917951871879.dkr.ecr.eu-west-1.amazonaws.com/dane-asr-worker:v1
+    image: dane-asr-worker # public.ecr.aws/a0x3r1t1/dane-asr-worker:v1
     imagePullPolicy: Never # Always
 ```
 
