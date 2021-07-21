@@ -127,7 +127,8 @@ kubectl exec dnsutils -- nslookup dane-asr-api
 
 ### KaldiNL API
 
-**File**: `DANE-asr-worker/asr_api/config/settings.py`
+**Repository**: [DANE-kaldi-nl-api](https://github.com/beeldengeluid/DANE-kaldi-nl-api)
+**File**: `config/settings.py`
 
 ```
 DEBUG = True # False
@@ -162,7 +163,8 @@ kubectl create configmap dane-kaldi-api-cfg --from-file ./asr_api/config/setting
 
 The DANE server Pod must be connected to the same RabbitMQ and Elasticsearch as the DANE-asr-worker
 
-**File** (in DANE-server repo): `DANE-server/config.yml`
+**Repository**: [DANE-server](https://github.com/CLARIAH/DANE-server)
+**File** `config.yml`
 
 
 ```
@@ -192,7 +194,9 @@ kubectl create configmap dane-server-cfg --from-file {DANE-server}/config.yml
 
 ### Creating secret for private registry
 
-Since the current registry is a private AWS ECR, it is necessary to create a k8s `Secret` before the configured `Pods` are able to pull the images from it. You can do this with:
+**Note** YOU CAN SKIP THIS STEP, SINCE ALL THE REQUIRED IMAGES ARE IN A PUBLIC REPO
+
+In case your docker registry is private, e.g. using AWS ECR, it is necessary to create a k8s `Secret` before the configured `Pods` are able to pull the images from it. You can do this with:
 
 ```
 kubectl create secret docker-registry xomg-aws-registry --docker-server={aws-server} --docker-username=AWS --docker-password={password}
@@ -272,8 +276,6 @@ docker build -t dane-kaldi-api .
 In case you're working on this ASR worker and running your local k8s cluster using minikube, you can run your local dane-asr-worker image by changing `k8s-dane-asr.yaml` in the following way:
 
 ```
-# imagePullSecrets:
-#    - name: xomg-aws-registry
   containers:
   - name: dane-asr-worker
     image: dane-asr-worker # public.ecr.aws/a0x3r1t1/dane-asr-worker:v1

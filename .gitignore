@@ -1,9 +1,7 @@
 .DS_Store
 mount
 config.yml
-pid-cache
-asr_api/log
-asr_api/config/settings.py
+logs
 scripts/assign_task.py
 scripts/make_docs.py
 scripts/test_asr_via_dane_api.py

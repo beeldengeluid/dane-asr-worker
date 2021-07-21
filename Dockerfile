@@ -1,7 +1,7 @@
 FROM python:3
 
 COPY ./ /src
-COPY requirements.txt /src
+COPY Pipfile Pipfile.lock /src/
 
 # override this config in Kubernetes with a ConfigMap mounted as a volume to /root/.DANE
 RUN mkdir /root/.DANE
@@ -12,6 +12,7 @@ RUN mkdir /mnt/dane-fs
 
 WORKDIR /src
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install pipenv
+RUN pipenv install --system
 
-CMD [ "python", "/src/worker.py" ]
+CMD [ "python", "worker.py" ]

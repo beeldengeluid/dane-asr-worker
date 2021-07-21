@@ -182,7 +182,7 @@ metadata:
 spec:
   containers:
   - name: dane-asr-worker
-    image: public.ecr.aws/a0x3r1t1/dane-asr-worker:v1
+    image: public.ecr.aws/a0x3r1t1/dane-asr-worker:v1.1
     imagePullPolicy: Always #Never when working locally
     volumeMounts:
     - name: dane-cfg-mnt

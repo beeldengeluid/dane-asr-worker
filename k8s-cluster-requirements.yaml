@@ -32,7 +32,7 @@ spec:
   persistentVolumeReclaimPolicy: Recycle
   storageClassName: local-storage
   local:
-    path: /home/someuser/dane-mount # fill in a valid path on a Kubernetes node (the local host if using minikube)
+    path: /Users/jblom/temp/dane-mount # fill in a valid path on a Kubernetes node (the local host if using minikube)
   nodeAffinity:
     required:
       nodeSelectorTerms:
@@ -56,12 +56,3 @@ spec:
       - "3600"
     imagePullPolicy: IfNotPresent
   restartPolicy: Always
----
-apiVersion: v1 #stores the login credentials taken from the minikube .docker/config.json (login to minikube)
-kind: Secret #scp -i $(minikube ssh-key) docker@$(minkube ip):.docker/config.json .docker/config.json
-metadata:
-  name: xomg-docker-registry # kubectl create secret generic xomg-docker-registry --from-file=.dockerconfigjson=.docker/config.json --type=kubernetes.io/dockerconfigjson
-data: #kubectl create secret docker-registry xomg-docker-registry --docker-server=dockerhub.rdlabs.beeldengeluid.nl --docker-user-name=xxx --docker-password=yyy
-  .dockerconfigjson: .docker/config.json | base64
-type: kubernetes.io/dockerconfigjson
-

@@ -134,6 +134,7 @@ class asr_worker(DANE.base_classes.base_worker):
 			self.logger.debug('created ASR output dir: {}'.format(self.config.ASR_API.OUTPUT_DIR))
 		except FileExistsError as e:
 			self.logger.debug(e)
+		self.logger.info('Data dirs ok, continuing')
 		return True
 
 	def __docker_container_runs(self, container_name):
