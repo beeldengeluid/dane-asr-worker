@@ -1,3 +1,5 @@
+#Note: both the base_config.yml AND your config.yml are parsed by DANE, so make sure to
+# properly overwrite ALL variables from this base_config into your config (~/.DANE/config.yml)
 DEBUG: false
 RABBITMQ:
     HOST: 'localhost'
@@ -12,16 +14,14 @@ ELASTICSEARCH:
     #USER: 'elastic'
     #PASSWORD: 'changeme'
     SCHEME: 'http'
-DOCKER:
-    ASR_CONTAINER: 'dane-asr'
-    RABBITMQ_CONTAINER: 'dane-rmq'
 ASR_API:
     HOST: 'localhost'
     PORT: 3023
-    OUTPUT_DIR: '../mount/asr-output'
     SIMULATE: false
     WAIT_FOR_COMPLETION: true
-DOWNLOAD:
-    USE_DANE_DOWNLOADER: false
-    LOCAL_DIR: '../mount/input-files'
+FILE_SYSTEM:
+    BASE_MOUNT: 'mount'
+    INPUT_DIR: 'input-files' # Note: also used as download dir
+    OUTPUT_DIR: 'asr-output'
+    USE_DANE_DOWNLOADER: true # let the worker download the input file (or not)
 

@@ -1,17 +1,16 @@
 import DANE.base_classes
 from DANE.config import cfg
 from DANE import Result, Task, Document
-import json
+
 import os
-import subprocess #used for calling cmd line to check if the required docker containers are up
+import codecs
+import ntpath
+from pathlib import Path
+import json
 import requests #for communicating with the ASR container's API
 from urllib.parse import urlparse, unquote, quote
 from time import sleep
 import hashlib
-import codecs
-import ntpath
-from pathlib import Path
-
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
@@ -33,8 +32,33 @@ TODO maybe use https://medium.com/@aliasav/how-follow-a-file-in-python-tail-f-in
 class asr_worker(DANE.base_classes.base_worker):
 
 	def __init__(self, config):
-		self.config = config
-		self.logger = self.init_logger(self.config)
+		self.logger = self.init_logger(config)
+		self.logger.debug(config)
+
+		# first make sure the config has everything we need
+		# Note: base_config is loaded first by DANE, so make sure you overwrite everything in your config.yml!
+		try:
+			# put all of the relevant settings in a variable
+			self.USE_DANE_DOWNLOADER: bool = config.FILE_SYSTEM.USE_DANE_DOWNLOADER
+			self.BASE_MOUNT: str = config.FILE_SYSTEM.BASE_MOUNT
+
+			# construct the input & output paths using the base mount as a parent dir
+			self.ASR_INPUT_DIR: str = os.path.join(self.BASE_MOUNT, config.FILE_SYSTEM.INPUT_DIR)
+			self.ASR_OUTPUT_DIR: str = os.path.join(self.BASE_MOUNT, config.FILE_SYSTEM.OUTPUT_DIR)
+
+			# ASR API settings
+			self.ASR_API_HOST: str = config.ASR_API.HOST
+			self.ASR_API_PORT: int = config.ASR_API.PORT
+			self.ASR_API_WAIT_FOR_COMPLETION: bool = config.ASR_API.WAIT_FOR_COMPLETION
+			self.ASR_API_SIMULATE: bool = config.ASR_API.SIMULATE
+		except AttributeError as e:
+			self.logger.error('Missing configuration setting')
+			quit()
+
+		# check if the main
+		if not self.validate_data_dirs(self.BASE_MOUNT, self.ASR_INPUT_DIR, self.ASR_OUTPUT_DIR):
+			self.logger.debug('ERROR: data dirs not configured properly')
+			quit()
 
 		# we specify a queue name because every worker of this type should
 		# listen to the same queue
@@ -44,30 +68,7 @@ class asr_worker(DANE.base_classes.base_worker):
 		self.__depends_on = []
 		#self.__depends_on = [{ 'key': 'DOWNLOAD', 'some_arg': 'bla' }]
 
-		self.SIMULATE_ASR_SERVICE = config.ASR_API.SIMULATE
-
-		if not self.validate_config():
-			self.logger.debug('ERROR: Invalid config, aborting')
-			quit()
-
-		if not self.validate_data_dirs():
-			self.logger.debug('ERROR: data dirs not configured properly')
-			quit()
-
-		# Note: deprecated, remove this later on
-		if config.DEBUG:
-			if not self.init_rabbitmq_container():
-				self.logger.debug('ERROR: Could not start in debug mode, RabbitMQ container could not be started, aborting...')
-				quit()
-			else:
-				self.logger.debug('great!')
-
-		"""
-		if not self.init_asr_container():
-			self.SIMULATE_ASR_SERVICE = True
-			self.logger.debug('ERROR: Could not start speech recognition service, continuing in simulation mode')
-			#quit()
-		"""
+		#TODO check if the ASR service is available
 
 		super().__init__(
 			self.__queue_name,
@@ -78,21 +79,21 @@ class asr_worker(DANE.base_classes.base_worker):
 			False #no_api
 		)
 
-	def init_logger(self, cfg):
+	def init_logger(self, config):
 		logger = logging.getLogger('DANE-ASR')
-		logger.setLevel(cfg.LOGGING.LEVEL)
+		logger.setLevel(config.LOGGING.LEVEL)
 		# create file handler which logs to file
-		if not os.path.exists(os.path.realpath(cfg.LOGGING.DIR)):
-			os.makedirs(os.path.realpath(cfg.LOGGING.DIR), exist_ok=True)
+		if not os.path.exists(os.path.realpath(config.LOGGING.DIR)):
+			os.makedirs(os.path.realpath(config.LOGGING.DIR), exist_ok=True)
 
 		fh = TimedRotatingFileHandler(os.path.join(
-			os.path.realpath(cfg.LOGGING.DIR), "DANE-ASR-worker.log"),
+			os.path.realpath(config.LOGGING.DIR), "DANE-ASR-worker.log"),
 			when='W6', # start new log on sunday
 			backupCount=3)
-		fh.setLevel(cfg.LOGGING.LEVEL)
+		fh.setLevel(config.LOGGING.LEVEL)
 		# create console handler
 		ch = logging.StreamHandler()
-		ch.setLevel(cfg.LOGGING.LEVEL)
+		ch.setLevel(config.LOGGING.LEVEL)
 		# create formatter and add it to the handlers
 		formatter = logging.Formatter(
 				'%(asctime)s - %(levelname)s - %(message)s',
@@ -106,51 +107,30 @@ class asr_worker(DANE.base_classes.base_worker):
 
 	"""----------------------------------INIT VALIDATION FUNCTIONS ---------------------------------"""
 
-	#TODO implement actual validation
-	def validate_config(self):
-		return True
+	def validate_data_dirs(self, base_mount: str, asr_input_dir: str, asr_output_dir: str):
+	    i_dir = Path(os.path.join(base_mount, asr_input_dir))
+	    o_dir = Path(os.path.join(base_mount, asr_output_dir))
 
-	def validate_data_dirs(self):
-		i_dir = Path(self.config.DOWNLOAD.LOCAL_DIR)
-		o_dir = Path(self.config.ASR_API.OUTPUT_DIR)
+	    if not os.path.exists(i_dir.parent.absolute()):
+	        self.logger.debug('{} does not exist. Make sure BASE_MOUNT_DIR exists before retrying'.format(
+	            i_dir.parent.absolute())
+	        )
+	        return False
 
-		if not os.path.exists(i_dir.parent.absolute()):
-			self.logger.debug('{} does not exist'.format(i_dir.parent.absolute()))
-			return False
+	    #make sure the input and output dirs are there
+	    try:
+	        os.mkdir(i_dir, 0o755)
+	        self.logger.debug('created ASR input dir: {}'.format(i_dir))
+	    except FileExistsError as e:
+	        self.logger.debug(e)
 
-		if not os.path.exists(o_dir.parent.absolute()):
-			self.logger.debug('{} does not exist'.format(o_dir.parent.absolute()))
-			return False
+	    try:
+	        os.mkdir(o_dir, 0o755)
+	        self.logger.debug('created ASR output dir: {}'.format(o_dir))
+	    except FileExistsError as e:
+	        self.logger.debug(e)
 
-		#make sure the input and output dirs are there
-		try:
-			os.mkdir(i_dir, 0o755)
-			self.logger.debug('created ASR input dir: {}'.format(self.config.DOWNLOAD.LOCAL_DIR))
-		except FileExistsError as e:
-			self.logger.debug(e)
-
-		try:
-			os.mkdir(o_dir, 0o755)
-			self.logger.debug('created ASR output dir: {}'.format(self.config.ASR_API.OUTPUT_DIR))
-		except FileExistsError as e:
-			self.logger.debug(e)
-		self.logger.info('Data dirs ok, continuing')
-		return True
-
-	def __docker_container_runs(self, container_name):
-		cmd = ['docker', 'container', 'inspect', '-f', "'{{.State.Status}}'", container_name]
-		self.logger.debug(' '.join(cmd))
-		process = subprocess.Popen(' '.join(cmd), stdout=subprocess.PIPE, shell=True)
-		stdout = process.communicate()[0]  # wait until finished. Remove stdout stuff if letting run in background and continue.
-		return str(stdout).find('running') != -1
-
-	def init_rabbitmq_container(self):
-		self.logger.debug('Checking if the RabbitMQ container (named {0}) is running'.format(self.config.DOCKER.RABBITMQ_CONTAINER))
-		return self.__docker_container_runs(self.config.DOCKER.RABBITMQ_CONTAINER)
-
-	def init_asr_container(self):
-		self.logger.debug('Checking if the ASR container (named {0}) is running'.format(self.config.DOCKER.ASR_CONTAINER))
-		return self.__docker_container_runs(self.config.DOCKER.ASR_CONTAINER)
+	    return True
 
 	"""----------------------------------INTERACTION WITH DANE SERVER ---------------------------------"""
 
@@ -161,7 +141,7 @@ class asr_worker(DANE.base_classes.base_worker):
 		self.logger.debug(doc)
 
 		# step 1 (temporary, until DOWNLOAD depency accepts params to override download dir)
-		input_file = self.fetch_downloaded_content(doc) if self.config.DOWNLOAD.USE_DANE_DOWNLOADER else None
+		input_file = self.fetch_downloaded_content(doc) if self.USE_DANE_DOWNLOADER else None
 
 		if input_file == None:
 			self.logger.debug('The file was not downloaded by the DANE worker, downloading it myself...')
@@ -210,7 +190,7 @@ class asr_worker(DANE.base_classes.base_worker):
 		return asset_id
 
 	def get_asr_output_dir(self, asset_id):
-		return os.path.join(self.config.ASR_API.OUTPUT_DIR, asset_id)
+		return os.path.join(self.ASR_OUTPUT_DIR, asset_id)
 
 	def hash_string(self, s):
 		return hashlib.sha224("{0}".format(s).encode('utf-8')).hexdigest()
@@ -227,7 +207,7 @@ class asr_worker(DANE.base_classes.base_worker):
 		fn = os.path.basename(urlparse(doc.target['url']).path)
 		#fn = unquote(fn)
 		#fn = doc.target['url'][doc.target['url'].rfind('/') +1:]
-		output_file = os.path.join(self.config.DOWNLOAD.LOCAL_DIR, fn)
+		output_file = os.path.join(self.ASR_INPUT_DIR, fn)
 		self.logger.debug('saving to file {}'.format(fn))
 
 		# download if the file is not present (preventing unnecessary downloads)
@@ -238,6 +218,7 @@ class asr_worker(DANE.base_classes.base_worker):
 				file.close()
 		return fn
 
+	#TODO make sure this works
 	def fetch_downloaded_content(self, doc):
 		self.logger.debug('checking download worker output')
 		try:
@@ -255,13 +236,13 @@ class asr_worker(DANE.base_classes.base_worker):
 		self.logger.debug('Going to submit {} to the ASR service, using PID={}'.format(input_file, input_hash))
 		try:
 			dane_asr_api_url = 'http://{}:{}/api/{}/{}?input_file={}&wait_for_completion={}&simulate={}'.format(
-				self.config.ASR_API.HOST,
-				self.config.ASR_API.PORT,
+				self.ASR_API_HOST,
+				self.ASR_API_PORT,
 				'process', #replace with process_debug to debug(?)
 				input_hash,
 				input_file,
-				'1' if self.config.ASR_API.WAIT_FOR_COMPLETION else '0',
-				'1' if self.SIMULATE_ASR_SERVICE else '0'
+				'1' if self.ASR_API_WAIT_FOR_COMPLETION else '0',
+				'1' if self.ASR_API_SIMULATE else '0'
 			)
 			self.logger.debug(dane_asr_api_url)
 			resp = requests.put(dane_asr_api_url)
@@ -269,7 +250,7 @@ class asr_worker(DANE.base_classes.base_worker):
 			return {'state': 500, 'message': 'Failure: could not connect to the ASR service'}
 
 		#return the result right away if in synchronous mode
-		if self.config.ASR_API.WAIT_FOR_COMPLETION:
+		if self.ASR_API_WAIT_FOR_COMPLETION:
 			if resp.status_code == 200:
 				self.logger.debug('The ASR service is done, returning the results')
 				data = json.loads(resp.text)
@@ -283,8 +264,8 @@ class asr_worker(DANE.base_classes.base_worker):
 		self.logger.debug('Polling the ASR service to check when it is finished')
 		while(True):
 			resp = requests.get('http://{0}:{1}/api/{2}/{3}'.format(
-				self.config.ASR_API.HOST,
-				self.config.ASR_API.PORT,
+				self.ASR_API_HOST,
+				self.ASR_API_PORT,
 				'process', #replace later with process
 				input_hash
 			))
