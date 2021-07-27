@@ -56,7 +56,7 @@ class asr_worker(DANE.base_classes.base_worker):
 			quit()
 
 		# check if the main
-		if not self.validate_data_dirs(self.BASE_MOUNT, self.ASR_INPUT_DIR, self.ASR_OUTPUT_DIR):
+		if not self.validate_data_dirs(self.ASR_INPUT_DIR, self.ASR_OUTPUT_DIR):
 			self.logger.debug('ERROR: data dirs not configured properly')
 			quit()
 
@@ -107,9 +107,9 @@ class asr_worker(DANE.base_classes.base_worker):
 
 	"""----------------------------------INIT VALIDATION FUNCTIONS ---------------------------------"""
 
-	def validate_data_dirs(self, base_mount: str, asr_input_dir: str, asr_output_dir: str):
-	    i_dir = Path(os.path.join(base_mount, asr_input_dir))
-	    o_dir = Path(os.path.join(base_mount, asr_output_dir))
+	def validate_data_dirs(self, asr_input_dir: str, asr_output_dir: str):
+	    i_dir = Path(asr_input_dir)
+	    o_dir = Path(asr_output_dir)
 
 	    if not os.path.exists(i_dir.parent.absolute()):
 	        self.logger.debug('{} does not exist. Make sure BASE_MOUNT_DIR exists before retrying'.format(
@@ -119,13 +119,13 @@ class asr_worker(DANE.base_classes.base_worker):
 
 	    #make sure the input and output dirs are there
 	    try:
-	        os.mkdir(i_dir, 0o755)
+	        os.makedirs(i_dir, 0o755)
 	        self.logger.debug('created ASR input dir: {}'.format(i_dir))
 	    except FileExistsError as e:
 	        self.logger.debug(e)
 
 	    try:
-	        os.mkdir(o_dir, 0o755)
+	        os.makedirs(o_dir, 0o755)
 	        self.logger.debug('created ASR output dir: {}'.format(o_dir))
 	    except FileExistsError as e:
 	        self.logger.debug(e)

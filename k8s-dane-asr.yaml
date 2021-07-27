@@ -173,7 +173,7 @@ spec:
       port: 80
       targetPort: 3023
 ---
-apiVersion: v1 # DANE worker
+apiVersion: v1 # DANE ASR worker
 kind: Pod
 metadata:
   name: dane-asr-worker
@@ -194,6 +194,31 @@ spec:
   - name: dane-cfg-mnt
     configMap:
       name: dane-asr-worker-cfg
+  - name: dane-pvc-mnt
+    persistentVolumeClaim:
+      claimName: asr-data-pvc
+---
+apiVersion: v1 # DANE download worker
+kind: Pod
+metadata:
+  name: dane-download-worker
+  labels:
+    app: dane-asr
+spec:
+  containers:
+  - name: dane-download-worker
+    image: dane-download-worker # public.ecr.aws/a0x3r1t1/dane-download-worker:v1.1
+    imagePullPolicy: Never #Never when working locally
+    volumeMounts:
+    - name: dane-cfg-mnt
+      mountPath: "/root/.DANE"
+      readOnly: true
+    - name: dane-pvc-mnt
+      mountPath: "/mnt/dane-fs"
+  volumes:
+  - name: dane-cfg-mnt
+    configMap:
+      name: dane-download-worker-cfg
   - name: dane-pvc-mnt
     persistentVolumeClaim:
       claimName: asr-data-pvc
