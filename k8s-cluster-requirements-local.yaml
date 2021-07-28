@@ -15,7 +15,7 @@ metadata:
   name: elasticsearch
 subsets:
   - addresses:
-    - ip: 34.254.252.75 # (44.242.32.23) your (external) ES host TODO figure out nice way to make this a variable (env does not work)
+    - ip: 34.254.252.75 # your (external) ES host TODO figure out nice way to make this a variable (env does not work)
     ports:
       - port: 9200
 ---
@@ -25,7 +25,7 @@ metadata:
   name: asr-data-volume
 spec:
   capacity:
-    storage: 20Gi
+    storage: 5Gi
   volumeMode: Filesystem
   accessModes:
   - ReadWriteOnce

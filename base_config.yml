@@ -1,27 +1,7 @@
-#Note: both the base_config.yml AND your config.yml are parsed by DANE, so make sure to
-# properly overwrite ALL variables from this base_config into your config (~/.DANE/config.yml)
-DEBUG: false
-RABBITMQ:
-    HOST: 'localhost'
-    PORT: 5672
-    EXCHANGE: 'DANE-exchange'
-    RESPONSE_QUEUE: 'DANE-response-queue'
-    USER: 'guest'
-    PASSWORD: 'guest'
-ELASTICSEARCH:
-    HOST: ['localhost']
-    PORT: 9200
-    #USER: 'elastic'
-    #PASSWORD: 'changeme'
-    SCHEME: 'http'
-ASR_API:
-    HOST: 'localhost'
-    PORT: 3023
-    SIMULATE: false
-    WAIT_FOR_COMPLETION: true
-FILE_SYSTEM:
-    BASE_MOUNT: 'mount'
-    INPUT_DIR: 'input-files' # Note: also used as download dir
-    OUTPUT_DIR: 'asr-output'
-    USE_DANE_DOWNLOADER: true # let the worker download the input file (or not)
-
+# Important for understanding DANE configs: https://github.com/CLARIAH/DANE/blob/main/DANE/config.py
+# Note: FIRST the home dir config is applied,
+# THEN the base_config will overwrite anything,
+# THEN the local config.yml
+LOGGING:
+    LEVEL: 'DEBUG'
+    DIR: 'logs'
