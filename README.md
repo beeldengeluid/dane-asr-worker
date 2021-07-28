@@ -81,35 +81,29 @@ Before being able to successfullt run everything in `k8s-dane-asr.yaml` it is ne
 **File**: `DANE-asr-worker/config.yml`
 
 ```
-DEBUG: false # deprecated option
-LOGGING:
-    LEVEL: 'DEBUG'
-    DIR: 'logs'
 RABBITMQ:
     HOST: 'dane-rabbitmq-api.default.svc.cluster.local'
     PORT: 5672
     EXCHANGE: 'DANE-exchange'
     RESPONSE_QUEUE: 'DANE-response-queue'
-    USER: 'guest'
-    PASSWORD: 'guest'
+    USER: 'guest' # change this for production mode
+    PASSWORD: 'guest' # change this for production mode
 ELASTICSEARCH:
     HOST: ['elasticsearch']
     PORT: 9200
-    #USER: 'elastic'
-    #PASSWORD: 'changeme'
+    #USER: 'elastic' # change this for production mode
+    #PASSWORD: 'changeme' # change this for production mode
     SCHEME: 'http'
-DOCKER:
-    ASR_CONTAINER: 'dane-asr'
-    RABBITMQ_CONTAINER: 'dane-rmq'
 ASR_API:
     HOST: 'dane-asr-api.default.svc.cluster.local'
     PORT: 3023
-    OUTPUT_DIR: '/mnt/dane-fs/asr-output'
     SIMULATE: false
     WAIT_FOR_COMPLETION: true
-DOWNLOAD:
+FILE_SYSTEM:
+    BASE_MOUNT: '/mnt/dane-fs' #'mount' when running locally
+    INPUT_DIR: 'input-files'
+    OUTPUT_DIR: 'output-files/asr-output'
     USE_DANE_DOWNLOADER: false
-    LOCAL_DIR: '/mnt/dane-fs/input-files'
 ```
 
 After you've created this file, create a ConfigMap from it (from this repo's root dir):
@@ -128,35 +122,35 @@ kubectl exec dnsutils -- nslookup dane-asr-api
 ### KaldiNL API
 
 **Repository**: [DANE-kaldi-nl-api](https://github.com/beeldengeluid/DANE-kaldi-nl-api)
-**File**: `config/settings.py`
+**File**: `config/settings.yaml`
 
 ```
-DEBUG = True # False
+DEBUG: True
+APP_HOST: '0.0.0.0'
+APP_PORT: 3023
 
-APP_HOST = '0.0.0.0'
-APP_PORT = 3023
+BASE_FS_MOUNT_DIR: '/mnt/dane-fs' # see Dockerfile
 
-MAIN_INPUT_DIR = '/mnt/dane-fs/input-files' # MUST match directory in DANE-asr-worker/asr_api/Dockerfile
+ASR_INPUT_DIR: 'input-files' # must match FILE_SYSTEM.INPUT_DIR (in DANE-asr-worker)
+ASR_OUTPUT_DIR: 'output-files/asr-output' # must match FILE_SYSTEM.OUTPUT_DIR (in DANE-asr-worker)
+ASR_PACKAGE_NAME: 'asr-features.tar.gz'
+ASR_WORD_JSON_FILE: 'words.json'
 
-ASR_OUTPUT_DIR = '/mnt/dane-fs/asr-output' # MUST match directory in DANE-asr-worker/asr_api/Dockerfile
-ASR_PACKAGE_NAME = 'asr-features.tar.gz'
-ASR_WORD_JSON_FILE = 'words.json'
+KALDI_NL_DIR: '/usr/local/opt/kaldi_nl' #'/opt/Kaldi_NL'
+KALDI_NL_DECODER: 'decode_OH.sh' #'decode.sh'
 
-KALDI_NL_DIR = '/usr/local/opt/kaldi_nl' #'/opt/Kaldi_NL'
-KALDI_NL_DECODER = 'decode_OH.sh'
+PID_CACHE_DIR: 'pid-cache' # relative from the server.py dir
 
-PID_CACHE_DIR = 'pid-cache' # relative from the server.py dir
-
-LOG_DIR = "log" # relative from the server.py dir
-LOG_NAME = "asr-service.log"
-LOG_LEVEL_CONSOLE = "DEBUG" # Levels: NOTSET - DEBUG - INFO - WARNING - ERROR - CRITICAL
-LOG_LEVEL_FILE = "DEBUG" # Levels: NOTSET - DEBUG - INFO - WARNING - ERROR - CRITICAL
+LOG_DIR: 'log' # relative from the server.py dir
+LOG_NAME: 'asr-service.log'
+LOG_LEVEL_CONSOLE: 'DEBUG' # Levels: NOTSET - DEBUG - INFO - WARNING - ERROR - CRITICAL
+LOG_LEVEL_FILE: 'DEBUG' # Levels: NOTSET - DEBUG - INFO - WARNING - ERROR - CRITICAL
 ```
 
 After you've created this file, create a ConfigMap from it (from this repo's root dir):
 
 ```
-kubectl create configmap dane-kaldi-api-cfg --from-file ./asr_api/config/settings.py
+kubectl create configmap dane-kaldi-api-cfg --from-file {DANE-kaldi-nl-api}/config/settings.yaml
 ```
 
 ### DANE server
