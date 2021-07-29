@@ -25,7 +25,7 @@ metadata:
   name: asr-data-volume
 spec:
   capacity:
-    storage: 5Gi
+    storage: 8Gi
   volumeMode: Filesystem
   accessModes:
   - ReadWriteOnce

@@ -1,17 +1,26 @@
 ---
-apiVersion: v1 # -------------- RUN RABBITMQ ------------------------------
-kind: Pod
+apiVersion: apps/v1 # -------------- RUN RABBITMQ ------------------------------
+kind: Deployment
 metadata:
-  name: dane-rabbitmq-server-pod
+  name: rabbitmq-deployment
   labels:
     app: dane-rabbitmq
 spec:
-  containers:
-  - name: dane-rabbitmq-server
-    image: rabbitmq:3-management
-    ports:
-    - containerPort: 15672
-    - containerPort: 5672
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dane-rabbitmq
+  template:
+    metadata:
+      labels:
+        app: dane-rabbitmq
+    spec:
+      containers:
+      - name: dane-rabbitmq-server
+        image: rabbitmq:3-management
+        ports:
+        - containerPort: 15672
+        - containerPort: 5672
 ---
 apiVersion: v1
 kind: Service
@@ -54,45 +63,63 @@ spec:
             port:
               number: 80
 ---
-apiVersion: v1 # -------------- RUN DANE SERVER (TASK SCHEDULER ONLY) ------------
-kind: Pod
+apiVersion: apps/v1 # -------------- RUN DANE SERVER (TASK SCHEDULER ONLY) ------------
+kind: Deployment
 metadata:
-  name: dane-server-pod
+  name: dane-server-ts-deployment
   labels:
-    app: dane-server
+    app: dane-server-ts
 spec:
-  containers:
-  - name: dane-server
-    image: dane-server
-    imagePullPolicy: Never
-    volumeMounts:
-    - name: dane-server-mnt
-      mountPath: "/root/.DANE"
-      readOnly: true
-  volumes:
-  - name: dane-server-mnt
-    configMap:
-      name: dane-server-cfg
+  replicas: 1 # only one scheduler can run at a time, otherwise the queue will be disrupted!
+  selector:
+    matchLabels:
+      app: dane-server-ts
+  template:
+    metadata:
+      labels:
+        app: dane-server-ts
+    spec:
+      containers:
+      - name: dane-server
+        image: dane-server:latest
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: dane-server-mnt
+          mountPath: "/root/.DANE"
+          readOnly: true
+      volumes:
+      - name: dane-server-mnt
+        configMap:
+          name: dane-server-cfg
 ---
-apiVersion: v1 # -------------- RUN DANE SERVER API -------------------------------
-kind: Pod
+apiVersion: apps/v1 # -------------- RUN DANE SERVER API -------------------------------
+kind: Deployment
 metadata:
-  name: dane-server-api-pod
+  name: dane-server-api-deployment
   labels:
     app: dane-server-api
 spec:
-  containers:
-  - name: dane-server-api
-    image: dane-server-api
-    imagePullPolicy: Never
-    volumeMounts:
-    - name: dane-server-mnt
-      mountPath: "/root/.DANE"
-      readOnly: true
-  volumes:
-  - name: dane-server-mnt
-    configMap:
-      name: dane-server-cfg #Note: same config as task scheduler
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dane-server-api
+  template:
+    metadata:
+      labels:
+        app: dane-server-api
+    spec:
+      containers:
+      - name: dane-server-api
+        image: dane-server-api:latest
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: dane-server-mnt
+          mountPath: "/root/.DANE"
+          readOnly: true
+      volumes:
+      - name: dane-server-mnt
+        configMap:
+          name: dane-server-cfg #Note: same config as task scheduler
 ---
 apiVersion: v1
 kind: Service
@@ -136,30 +163,39 @@ spec:
     requests:
       storage: 4Gi
 ---
-apiVersion: v1 # -------------- SPECIFIC COMPONENTS FOR PROCESSING ASR -------------------------------
-kind: Pod
+apiVersion: apps/v1 # -------------- SPECIFIC COMPONENTS FOR PROCESSING ASR -------------------------------
+kind: Deployment
 metadata:
-  name: kaldi-nl-api
+  name: kaldi-nl-api-deployment
   labels:
     app: dane-asr-api
 spec:
-  containers:
-  - name: kaldi-nl-api
-    image: dane-kaldi-api
-    imagePullPolicy: Never
-    volumeMounts:
-    - name: dane-kaldi-api-cfg-mnt
-      mountPath: "/src/config"
-      readOnly: true
-    - name: dane-pvc-mnt
-      mountPath: "/mnt/dane-fs" #Note: the dane-asr-worker creates the input & output dir for ASR
-  volumes:
-  - name: dane-kaldi-api-cfg-mnt
-    configMap:
-      name: dane-kaldi-api-cfg
-  - name: dane-pvc-mnt
-    persistentVolumeClaim:
-      claimName: asr-data-pvc
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dane-asr-api
+  template:
+    metadata:
+      labels:
+        app: dane-asr-api
+    spec:
+      containers:
+      - name: kaldi-nl-api
+        image: dane-kaldi-api:latest
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: dane-kaldi-api-cfg-mnt
+          mountPath: "/src/config"
+          readOnly: true
+        - name: dane-pvc-mnt
+          mountPath: "/mnt/dane-fs" #Note: the dane-asr-worker creates the input & output dir for ASR
+      volumes:
+      - name: dane-kaldi-api-cfg-mnt
+        configMap:
+          name: dane-kaldi-api-cfg
+      - name: dane-pvc-mnt
+        persistentVolumeClaim:
+          claimName: asr-data-pvc
 ---
 apiVersion: v1 # service that exposes the kaldi-nl-api for the DANE ASR worker
 kind: Service
@@ -173,52 +209,70 @@ spec:
       port: 80
       targetPort: 3023
 ---
-apiVersion: v1 # DANE ASR worker
-kind: Pod
+apiVersion: apps/v1 # DANE ASR worker
+kind: Deployment
 metadata:
-  name: dane-asr-worker
+  name: dane-asr-worker-deployment
   labels:
-    app: dane-asr
+    app: dane-asr-worker
 spec:
-  containers:
-  - name: dane-asr-worker
-    image: dane-asr-worker
-    imagePullPolicy: Never
-    volumeMounts:
-    - name: dane-cfg-mnt
-      mountPath: "/root/.DANE"
-      readOnly: true
-    - name: dane-pvc-mnt
-      mountPath: "/mnt/dane-fs"
-  volumes:
-  - name: dane-cfg-mnt
-    configMap:
-      name: dane-asr-worker-cfg
-  - name: dane-pvc-mnt
-    persistentVolumeClaim:
-      claimName: asr-data-pvc
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dane-asr-worker
+  template:
+    metadata:
+      labels:
+        app: dane-asr-worker
+    spec:
+      containers:
+      - name: dane-asr-worker
+        image: dane-asr-worker:latest
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: dane-cfg-mnt
+          mountPath: "/root/.DANE"
+          readOnly: true
+        - name: dane-pvc-mnt
+          mountPath: "/mnt/dane-fs"
+      volumes:
+      - name: dane-cfg-mnt
+        configMap:
+          name: dane-asr-worker-cfg
+      - name: dane-pvc-mnt
+        persistentVolumeClaim:
+          claimName: asr-data-pvc
 ---
-apiVersion: v1 # DANE download worker
-kind: Pod
+apiVersion: apps/v1 # DANE download worker
+kind: Deployment
 metadata:
-  name: dane-download-worker
+  name: dane-download-worker-deployment
   labels:
-    app: dane-asr
+    app: dane-download-worker
 spec:
-  containers:
-  - name: dane-download-worker
-    image: dane-download-worker
-    imagePullPolicy: Never
-    volumeMounts:
-    - name: dane-cfg-mnt
-      mountPath: "/root/.DANE"
-      readOnly: true
-    - name: dane-pvc-mnt
-      mountPath: "/mnt/dane-fs"
-  volumes:
-  - name: dane-cfg-mnt
-    configMap:
-      name: dane-download-worker-cfg
-  - name: dane-pvc-mnt
-    persistentVolumeClaim:
-      claimName: asr-data-pvc
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dane-download-worker
+  template:
+    metadata:
+      labels:
+        app: dane-download-worker
+    spec:
+      containers:
+      - name: dane-download-worker
+        image: dane-download-worker:latest
+        imagePullPolicy: Never
+        volumeMounts:
+        - name: dane-cfg-mnt
+          mountPath: "/root/.DANE"
+          readOnly: true
+        - name: dane-pvc-mnt
+          mountPath: "/mnt/dane-fs"
+      volumes:
+      - name: dane-cfg-mnt
+        configMap:
+          name: dane-download-worker-cfg
+      - name: dane-pvc-mnt
+        persistentVolumeClaim:
+          claimName: asr-data-pvc
