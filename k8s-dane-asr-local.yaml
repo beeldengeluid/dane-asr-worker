@@ -216,7 +216,7 @@ metadata:
   labels:
     app: dane-asr-worker
 spec:
-  replicas: 3
+  replicas: 2
   selector:
     matchLabels:
       app: dane-asr-worker
