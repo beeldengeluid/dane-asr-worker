@@ -145,7 +145,7 @@ metadata:
 spec:
   containers:
   - name: kaldi-nl-api
-    image: public.ecr.aws/a0x3r1t1/dane-kaldi-api:v1
+    image: jblom/kaldi_nl_api:v1 # could not be stored in ECR because of size limitations
     imagePullPolicy: Always
     volumeMounts:
     - name: dane-kaldi-api-cfg-mnt
