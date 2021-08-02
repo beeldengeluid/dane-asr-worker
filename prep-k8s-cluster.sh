@@ -6,6 +6,12 @@ eval $(minikube docker-env)
 
 kubectl apply -f k8s-cluster-requirements.yaml
 
+# delete the old configmaps
+
+kubectl delete configmap dane-server-cfg
+kubectl delete configmap dane-download-worker-cfg
+kubectl delete configmap dane-kaldi-api-cfg
+kubectl delete configmap dane-asr-worker-cfg
 
 # create the configmaps (first make sure you have these settings!)
 
