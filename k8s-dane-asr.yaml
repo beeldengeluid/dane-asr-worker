@@ -52,6 +52,16 @@ metadata:
   name: dane-rabbitmq-ingress
 spec:
   rules:
+  - host: rabbitmq.dane.54.217.179.144.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dane-rabbitmq-management
+            port:
+              number: 80
   - host: rabbitmq.dane.nl
     http:
       paths:
@@ -139,7 +149,17 @@ metadata:
   name: dane-server-ingress
 spec:
   rules:
-  - host: api.dane.nl
+  - host: api.dane.54.217.179.144.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dane-server-api-service
+            port:
+              number: 80
+- host: api.dane.nl
     http:
       paths:
       - path: /
