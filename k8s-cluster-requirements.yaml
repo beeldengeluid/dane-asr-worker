@@ -31,16 +31,16 @@ spec:
   - ReadWriteOnce
   persistentVolumeReclaimPolicy: Delete
   storageClassName: local-storage
-  local:
+  localPath: # On minikube, use local path
     path: /Users/jblom/temp/dane-mount # fill in a valid path on a Kubernetes node (the local host if using minikube)
-  nodeAffinity:
-    required:
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: kubernetes.io/hostname
-          operator: In
-          values:
-          - minikube # Note: run kubectl get nodes to see what nodes you have running
+  # nodeAffinity:
+    # required:
+      # nodeSelectorTerms:
+      # - matchExpressions:
+        # - key: kubernetes.io/hostname
+          # operator: In
+          # values:
+          # - minikube # Note: run kubectl get nodes to see what nodes you have running
 ---
 apiVersion: v1 # only for conveniently looking up the dns records for k8s services
 kind: Pod # kubectl exec dnsutils -- nslookup dane-rabbitmq-api
