@@ -9,9 +9,9 @@ kubectl apply -f k8s-cluster-requirements.yaml
 
 # create the configmaps (first make sure you have these settings!)
 
-kubectl create configmap dane-server-cfg --from-file {DANE-SERVER-HOME}/config.yml
-kubectl create configmap dane-download-worker-cfg --from-file {DANE-DOWNLOAD-WORKER-HOME}/config.yml
-kubectl create configmap dane-kaldi-api-cfg --from-file {KALDINL-API-HOME}/config/settings.yaml
+kubectl create configmap dane-server-cfg --from-file ../DANE-server/config.yml
+kubectl create configmap dane-download-worker-cfg --from-file ../download-worker/config.yml
+kubectl create configmap dane-kaldi-api-cfg --from-file ../DANE-kaldi-nl-api/config/settings.yaml
 kubectl create configmap dane-asr-worker-cfg --from-file config.yml
 
 # create the secret used to access the docker registry in AWS (referred to in imagePullSecrets)
