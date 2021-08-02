@@ -81,7 +81,7 @@ spec:
     spec:
       containers:
       - name: dane-server
-        image: public.ecr.aws/a0x3r1t1/dane-server:v1
+        image: public.ecr.aws/a0x3r1t1/dane-server:v1.1
         imagePullPolicy: Never
         volumeMounts:
         - name: dane-server-mnt
@@ -110,7 +110,7 @@ spec:
     spec:
       containers:
       - name: dane-server-api
-        image: public.ecr.aws/a0x3r1t1/dane-server-api:v1
+        image: public.ecr.aws/a0x3r1t1/dane-server-api:v1.1
         imagePullPolicy: Never
         volumeMounts:
         - name: dane-server-mnt
@@ -227,7 +227,7 @@ spec:
     spec:
       containers:
       - name: dane-asr-worker
-        image: public.ecr.aws/a0x3r1t1/dane-asr-worker:v1.1
+        image: public.ecr.aws/a0x3r1t1/dane-asr-worker:v1.2
         imagePullPolicy: Never
         volumeMounts:
         - name: dane-cfg-mnt

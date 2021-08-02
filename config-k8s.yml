@@ -28,5 +28,5 @@ FILE_SYSTEM:
     BASE_MOUNT: '/mnt/dane-fs' #'mount' when running locally
     INPUT_DIR: 'input-files'
     OUTPUT_DIR: 'output-files/asr-output'
-    USE_DANE_DOWNLOADER: false
+    USE_DANE_DOWNLOADER: true
 

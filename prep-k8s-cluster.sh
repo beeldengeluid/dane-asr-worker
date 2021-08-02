@@ -1,4 +1,6 @@
-#!/bin/sh
+# only when using the k8s-dane-asr-local.yml on a local minikibe (sets the minikube docker env)
+# (in this setup ALL required images need to be built in the minikube docker env!)
+eval $(minikube docker-env)
 
 # prepare the cluster by creating a volume the ES endpoint (current DANE cluster)
 
@@ -19,3 +21,13 @@ kubectl create secret docker-registry xomg-aws-registry --docker-server={aws-ser
 
 # login to the ECR
 aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin {aws-server}
+
+
+# updating an image in your cluster (e.g. for dane-server-api)
+
+## first set the new image for a deployment
+kubectl set image deployments/dane-server-api-deployment dane-server-api=dane-server-api:latest
+
+## then restart the deployment
+kubectl rollout restart deployment/dane-server-api-deployment
+

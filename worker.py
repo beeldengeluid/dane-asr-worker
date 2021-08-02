@@ -64,8 +64,8 @@ class asr_worker(DANE.base_classes.base_worker):
 		# listen to the same queue
 		self.__queue_name = 'ASR' #this is the queue that receives the work and NOT the reply queue
 		self.__binding_key = "#.ASR" #['Video.ASR', 'Sound.ASR']#'#.ASR'
+		self.__depends_on = ['DOWNLOAD']
 		#['DOWNLOAD'] TODO Nanne will support adding params to this, so it's possible to override the default Task being generated for the downloader
-		self.__depends_on = []
 		#self.__depends_on = [{ 'key': 'DOWNLOAD', 'some_arg': 'bla' }]
 
 		#TODO check if the ASR service is available
