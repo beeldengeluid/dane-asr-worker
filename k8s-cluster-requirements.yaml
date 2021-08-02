@@ -31,7 +31,7 @@ spec:
   - ReadWriteOnce
   persistentVolumeReclaimPolicy: Delete
   storageClassName: local-storage
-  localPath: # On minikube, use local path
+  hostPath: # On minikube, use local path
     path: /Users/jblom/temp/dane-mount # fill in a valid path on a Kubernetes node (the local host if using minikube)
   # nodeAffinity:
     # required:
