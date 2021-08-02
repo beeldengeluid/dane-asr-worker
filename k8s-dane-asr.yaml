@@ -82,7 +82,7 @@ spec:
       containers:
       - name: dane-server
         image: public.ecr.aws/a0x3r1t1/dane-server:v1.1
-        imagePullPolicy: Never
+        imagePullPolicy: Always
         volumeMounts:
         - name: dane-server-mnt
           mountPath: "/root/.DANE"
@@ -111,7 +111,7 @@ spec:
       containers:
       - name: dane-server-api
         image: public.ecr.aws/a0x3r1t1/dane-server-api:v1.1
-        imagePullPolicy: Never
+        imagePullPolicy: Always
         volumeMounts:
         - name: dane-server-mnt
           mountPath: "/root/.DANE"
@@ -182,7 +182,7 @@ spec:
       containers:
       - name: kaldi-nl-api
         image: jblom/kaldi_nl_api:v1
-        imagePullPolicy: Never
+        imagePullPolicy: Always
         volumeMounts:
         - name: dane-kaldi-api-cfg-mnt
           mountPath: "/src/config"
@@ -228,7 +228,7 @@ spec:
       containers:
       - name: dane-asr-worker
         image: public.ecr.aws/a0x3r1t1/dane-asr-worker:v1.2
-        imagePullPolicy: Never
+        imagePullPolicy: Always
         volumeMounts:
         - name: dane-cfg-mnt
           mountPath: "/root/.DANE"
@@ -262,7 +262,7 @@ spec:
       containers:
       - name: dane-download-worker
         image: public.ecr.aws/a0x3r1t1/dane-download-worker:v1
-        imagePullPolicy: Never
+        imagePullPolicy: Always
         volumeMounts:
         - name: dane-cfg-mnt
           mountPath: "/root/.DANE"
