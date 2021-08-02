@@ -19,6 +19,7 @@ ELASTICSEARCH:
     USER: '' # change this for production mode
     PASSWORD: '' # change this for production mode
     SCHEME: 'http'
+    INDEX: 'dane-index-k8s-asr'
 ASR_API:
     HOST: 'dane-asr-api.default.svc.cluster.local'
     PORT: 3023
