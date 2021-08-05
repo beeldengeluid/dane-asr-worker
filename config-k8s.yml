@@ -22,7 +22,7 @@ ELASTICSEARCH:
     INDEX: 'dane-index-k8s-asr'
 ASR_API:
     HOST: 'dane-asr-api.default.svc.cluster.local'
-    PORT: 3023
+    PORT: 80 # target port 3023, but mapped to 80 by k8s service
     SIMULATE: false
     WAIT_FOR_COMPLETION: true
 FILE_SYSTEM:
@@ -30,4 +30,7 @@ FILE_SYSTEM:
     INPUT_DIR: 'input-files'
     OUTPUT_DIR: 'output-files/asr-output'
     USE_DANE_DOWNLOADER: true
+PATHS:
+    TEMP_FOLDER: "/mnt/dane-fs/input-files"
+    OUT_FOLDER: "/mnt/dane-fs/output-files"
 

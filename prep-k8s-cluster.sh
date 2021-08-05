@@ -28,7 +28,6 @@ kubectl create secret docker-registry xomg-aws-registry --docker-server={aws-ser
 # login to the ECR
 aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin {aws-server}
 
-
 # updating an image in your cluster (e.g. for dane-server-api)
 
 ## first set the new image for a deployment
@@ -36,4 +35,14 @@ kubectl set image deployments/dane-server-api-deployment dane-server-api=dane-se
 
 ## then restart the deployment
 kubectl rollout restart deployment/dane-server-api-deployment
+
+
+# create aws/eks context
+aws eks --region eu-west-1 update-kubeconfig --name test-cluster
+
+# switch context (e.g. from minikube to the aws/eks test-cluster)
+kubectl config use-context CONTEXT_NAME
+
+# list all contexts
+kubectl config get-contexts
 

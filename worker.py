@@ -247,6 +247,7 @@ class asr_worker(DANE.base_classes.base_worker):
 			self.logger.debug(dane_asr_api_url)
 			resp = requests.put(dane_asr_api_url)
 		except requests.exceptions.ConnectionError as e:
+			self.logger.error(e)
 			return {'state': 500, 'message': 'Failure: could not connect to the ASR service'}
 
 		#return the result right away if in synchronous mode
