@@ -229,6 +229,33 @@ spec:
       port: 80
       targetPort: 3023
 ---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dane-asr-api-ingress
+spec:
+  rules:
+  - host: kaldi.dane.54.217.179.144.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dane-asr-api
+            port:
+              number: 80
+  - host: kaldi.dane.nl
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dane-asr-api
+            port:
+              number: 80
+---
 apiVersion: apps/v1 # DANE ASR worker
 kind: Deployment
 metadata:
