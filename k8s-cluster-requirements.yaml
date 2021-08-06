@@ -29,7 +29,7 @@ spec:
   volumeMode: Filesystem
   accessModes:
   - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Delete
+  persistentVolumeReclaimPolicy: Retain
   storageClassName: local-storage
   hostPath: # On minikube, use local path
     path: /Users/jblom/temp/dane-mount # fill in a valid path on a Kubernetes node (the local host if using minikube)
