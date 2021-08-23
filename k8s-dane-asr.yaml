@@ -284,6 +284,10 @@ spec:
       labels:
         app: dane-download-worker
     spec:
+      hostAliases: # so the download worker can access this host TODO configure
+      - ip: "46.23.85.61"
+        hostnames:
+        - "videohosting.beng.nl"
       containers:
       - name: dane-download-worker
         image: public.ecr.aws/a0x3r1t1/dane-download-worker:v1

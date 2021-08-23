@@ -253,6 +253,10 @@ spec:
       labels:
         app: dane-download-worker
     spec:
+      hostAliases:
+      - ip: "46.23.85.61"
+        hostnames:
+        - "videohosting.beng.nl"
       containers:
       - name: dane-download-worker
         image: dane-download-worker:latest
