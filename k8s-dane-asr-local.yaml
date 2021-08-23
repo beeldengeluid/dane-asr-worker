@@ -179,7 +179,7 @@ spec:
       labels:
         app: dane-asr-worker
     spec:
-      containers:
+      containers: #Note: now trying out the multi-container setup, so each worker has its own kaldi container
       - name: dane-asr-worker
         image: public.ecr.aws/a0x3r1t1/dane-asr-worker:v1.2 #dane-asr-worker:latest
         imagePullPolicy: Always
@@ -189,14 +189,54 @@ spec:
           readOnly: true
         - name: dane-pvc-mnt
           mountPath: "/mnt/dane-fs"
+      - name: kaldi-nl-api
+        image: jblom/kaldi_nl_api:v1
+        imagePullPolicy: Always
+        volumeMounts:
+        - name: dane-kaldi-api-cfg-mnt
+          mountPath: "/src/config"
+          readOnly: true
+        - name: dane-pvc-mnt
+          mountPath: "/mnt/dane-fs" #Note: the dane-asr-worker creates the input & output dir for ASR
       volumes:
       - name: dane-cfg-mnt
         configMap:
           name: dane-asr-worker-cfg
-      - name: dane-pvc-mnt
+      - name: dane-kaldi-api-cfg-mnt
+        configMap:
+          name: dane-kaldi-api-cfg
+      - name: dane-pvc-mnt # shared by both dane-asr-worker & kaldi-nl-api
         persistentVolumeClaim:
           claimName: asr-data-pvc
 ---
+apiVersion: v1 # service that exposes the kaldi-nl-api for the DANE ASR worker
+kind: Service
+metadata:
+  name: dane-asr-worker-api
+spec:
+  selector:
+    app: dane-asr-worker
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3023
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dane-asr-worker-api-ingress
+spec:
+  rules:
+  - host: kaldi.dane.nl
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dane-asr-worker-api
+            port:
+              number: 80
 apiVersion: apps/v1 # DANE download worker
 kind: Deployment
 metadata:

@@ -20,6 +20,9 @@ kubectl create configmap dane-download-worker-cfg --from-file ../download-worker
 kubectl create configmap dane-kaldi-api-cfg --from-file ../DANE-kaldi-nl-api/config/settings.yaml
 kubectl create configmap dane-asr-worker-cfg --from-file config.yml
 
+# add videohosting.beng.nl entry to /etc/hosts (download worker)
+echo -e "46.23.85.61\tvideohosting.beng.nl" >> /etc/hosts
+
 # create the secret used to access the docker registry in AWS (referred to in imagePullSecrets)
 
 kubectl create secret docker-registry xomg-aws-registry --docker-server={aws-server} --docker-username=AWS --docker-password={password}
@@ -45,4 +48,9 @@ kubectl config use-context CONTEXT_NAME
 
 # list all contexts
 kubectl config get-contexts
+
+# connect to specific container in a pod
+
+kubectl exec -ti dane-asr-worker-deployment-74d9d6c8f8-czbz9 --container kaldi-nl-api -- /bin/bash
+kubectl exec -ti dane-asr-worker-deployment-74d9d6c8f8-czbz9 --container dane-asr-worker -- /bin/bash
 
