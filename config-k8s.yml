@@ -21,8 +21,8 @@ ELASTICSEARCH:
     SCHEME: 'http'
     INDEX: 'dane-index-k8s-asr'
 ASR_API:
-    HOST: 'dane-asr-api.default.svc.cluster.local'
-    PORT: 80 # target port 3023, but mapped to 80 by k8s service
+    HOST: 'localhost' #'dane-asr-api.default.svc.cluster.local'
+    PORT: 3023 # target port 3023, but mapped to 80 by k8s service
     SIMULATE: false
     WAIT_FOR_COMPLETION: true
 FILE_SYSTEM:
