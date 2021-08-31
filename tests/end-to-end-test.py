@@ -2,11 +2,15 @@ import yaml
 import json
 import DANE
 import requests
+import elasticsearch
+from es_handler import ESHandler
+from time import sleep
 
 class EndToEndTest():
 
     def __init__(self, cfg_file):
         self.config = self.load_config(cfg_file)
+        self.es_handler = ESHandler(self.config['ELASTICSEARCH'])
 
         # DANE READY ENDPOINT
         self.DANE_READY_ENDPOINT = '{}/ready'.format(self.config['DANE_SERVER'])
@@ -69,9 +73,31 @@ class EndToEndTest():
             print('Created task: {}'.format(task_id is not None))
             if task_id:
                 print('success now monitoring task {}'.format(task_id))
+                ok = self.test_get_task(task_id)
+                print('Get task: {}'.format(ok))
+
+                if ok:
+                    task_running = True
+                    while(task_running):
+                        result = self.test_get_result(task_id)
+                        print('Get result {}'.format(result is not None))
+                        task_running = result is None
+                        if task_running:
+                            print('Waiting for 2 seconds to try again...')
+                            sleep(2) # wait to seconds
+                else:
+                    print('could not fetch task?')
+
+
+                #finally delete the doc after the task has successfully ran (which will delete the task as well)
+                ok = self.test_delete_doc(doc_id)
+                print('Deleted doc for successfully run task: {}'.format(ok))
             else:
                 ok = self.test_delete_doc(doc_id)
                 print('Deleted doc for task that could not be created: {}'.format(ok))
+
+    def test_new_functions(self):
+        pass #TODO when adding new stuff
 
 
     """
@@ -133,7 +159,7 @@ class EndToEndTest():
       "updated_at": "2021-08-03T13:09:58"
     }
     """
-    def test_get_doc(self, doc_id): #make sure to test that the doc was inserted properly
+    def test_get_doc(self, doc_id:str): #make sure to test that the doc was inserted properly
         url = '{}{}'.format(
             self.DANE_DOC_ENDPOINT,
             doc_id
@@ -149,7 +175,7 @@ class EndToEndTest():
         return False
 
     #first also test if the delete works
-    def test_delete_doc(self, doc_id):
+    def test_delete_doc(self, doc_id:str):
         url = '{}{}'.format(
             self.DANE_DOC_ENDPOINT,
             doc_id
@@ -227,7 +253,7 @@ class EndToEndTest():
         "failed": []
     }
     """
-    def test_create_task(self, doc_id, task_type):
+    def test_create_task(self, doc_id:str, task_type:str):
         task = {
             "document_id": [doc_id],
             "key": task_type,
@@ -247,22 +273,25 @@ class EndToEndTest():
         print(data)
         return None
 
-    def test_get_task(self, task_id): #make sure to test that the doc was inserted properly
+    def test_get_task(self, task_id:str): #make sure to test that the doc was inserted properly
         url = '{}{}'.format(
             self.DANE_TASK_ENDPOINT,
             task_id
         )
+        print(url)
         resp = requests.get(url)
         if resp.status_code == 200:
             print(resp.text)
             data = json.loads(resp.text)
-            if all([x in ['_id', 'target', 'creator', 'created_at', 'updated_at'] for x in data.keys()]):
-                return True
+            print(json.dumps(data))
+            #if all([x in ['_id', 'target', 'creator', 'created_at', 'updated_at'] for x in data.keys()]):
+            return True
         else:
+            print('something went wrong in fetching the task')
             print(str(resp.status_code) + " " + resp.text)
         return False
 
-    def test_delete_task(self, task_id):
+    def test_delete_task(self, task_id:str):
         url = '{}{}'.format(
             self.DANE_TASK_ENDPOINT,
             task_id
@@ -276,10 +305,33 @@ class EndToEndTest():
             print(str(resp.status_code) + " " + resp.text)
         return False
 
-    def test_get_task(self, task_id):
-        pass
+    """
+    ------------------------- FIND RESULTS ---------------------------
+    """
+
+    def test_get_result(self, task_id:str):
+        query = {
+            "query": {
+                "parent_id": {
+                    "type": "result",
+                    "id": task_id
+                }
+            }
+        }
+        resp = self.es_handler.search(query, self.config['ELASTICSEARCH']['index'])
+        #print(json.dumps(resp, indent=4, sort_keys=True))
+        if 'hits' in resp and len(resp['hits']) == 1:
+            hit = resp['hits'][0]
+            if 'result' not in hit['_source']:
+                print('No source in result hit?')
+                return None
+            return hit['_source']['result'] if 'result' in hit['_source'] else None
+        print('No hits for result')
+        return None
+
 
 if __name__ == '__main__':
     print('starting end to end test')
     e2e = EndToEndTest('config.yml')
     e2e.run()
+    #e2e.test_new_functions()
