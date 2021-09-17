@@ -97,7 +97,49 @@ class EndToEndTest():
                 print('Deleted doc for task that could not be created: {}'.format(ok))
 
     def test_new_functions(self):
-        pass #TODO when adding new stuff
+        # 3nd test suite (test task CRUD also influencing worker queues)
+        print('* Checking task CRUD *')
+        doc_id = self.test_create_doc()
+        print('Created doc: {}'.format(doc_id is not None))
+        if not doc_id:
+            print('checking if the doc already exists')
+            doc = self.test_search_doc(self.config['TEST_DOC']['id'])
+            print(doc)
+            doc_id = doc['_id'] if doc else None
+        if(doc_id):
+            # doc is ok, now create a download task
+            task_id = self.test_create_task(doc_id, 'ASR')
+            print('Created task: {}'.format(task_id is not None))
+            if task_id:
+                print('SUCCESFULLY CREATED ASR TASK {}'.format(task_id))
+                print('now monitoring task {}'.format(task_id))
+                ok = self.test_get_task(task_id)
+                print('Get task: {}'.format(ok))
+                c = 0
+                if ok:
+                    task_running = True
+                    while(task_running):
+                        result = self.test_get_result(task_id)
+                        print('Get result {}'.format(result is not None))
+                        tasks = self.test_get_tasks_of_doc(doc_id)
+                        print(tasks)
+                        task_running = result is None
+                        if task_running:
+                            print('Waiting for 2 seconds to try again (ASR)...')
+                            sleep(2) # wait to seconds
+                        else:
+                            print('YAY I AM ACTUALLY DONE WITH ASR!')
+                        c += 1
+                        if c > 430:
+                            print('I am fed up with this!')
+                            task_running = False
+                else:
+                    print('could not fetch task?')
+
+        #finally delete the doc after the task has successfully ran (which will delete the task as well)
+        ok = self.test_delete_doc(doc_id)
+        print('Deleted doc for successfully run task: {}'.format(ok))
+        print('DONE WITH ASR TEST')
 
 
     """
@@ -187,6 +229,32 @@ class EndToEndTest():
         else:
             print(str(resp.status_code) + " " + resp.text)
         return False
+
+    #Note: there is also /document/{doc_id}/tasks (but has a slower implementation)
+    def test_get_tasks_of_doc(self, doc_id:str):
+        query = {
+            "query": {
+                "parent_id": {
+                    "type": "task",
+                    "id": doc_id
+                }
+            }
+        }
+        resp = self.es_handler.search(query, self.config['ELASTICSEARCH']['index'])
+        if 'hits' in resp:
+            tasks = []
+            for hit in resp['hits']:
+                if 'task' not in hit['_source']:
+                    print('No _source in task hit?')
+                    continue
+                t = hit['_source']['task'] if 'task' in hit['_source'] else None
+                t['created_at'] = hit['_source']['created_at'] if 'created_at' in hit['_source'] else None
+                t['updated_at'] = hit['_source']['updated_at'] if 'updated_at' in hit['_source'] else None
+                if t:
+                    tasks.append(t)
+            return tasks
+        print('No tasks found for doc_id {}'.format(doc_id))
+        return None
 
     """
     -------------------------------------- SEARCH TARGET ID (HELPER) -----------------------------------
@@ -333,5 +401,5 @@ class EndToEndTest():
 if __name__ == '__main__':
     print('starting end to end test')
     e2e = EndToEndTest('config.yml')
-    e2e.run()
-    #e2e.test_new_functions()
+    #e2e.run()
+    e2e.test_new_functions()
