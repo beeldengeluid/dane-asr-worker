@@ -6,5 +6,4 @@ config.yml
 logs
 scripts/assign_task.py
 scripts/make_docs.py
-scripts/test_asr_via_dane_api.py
 scripts/radio-oranje-batch.json

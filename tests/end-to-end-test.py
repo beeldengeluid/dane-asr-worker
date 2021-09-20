@@ -80,6 +80,7 @@ class EndToEndTest():
                     task_running = True
                     while(task_running):
                         result = self.test_get_result(task_id)
+                        print(result)
                         print('Get result {}'.format(result is not None))
                         task_running = result is None
                         if task_running:
@@ -401,5 +402,5 @@ class EndToEndTest():
 if __name__ == '__main__':
     print('starting end to end test')
     e2e = EndToEndTest('config.yml')
-    #e2e.run()
-    e2e.test_new_functions()
+    e2e.run()
+    #e2e.test_new_functions()

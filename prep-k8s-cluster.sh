@@ -54,6 +54,9 @@ kubectl config get-contexts
 kubectl exec -ti dane-asr-worker-deployment-74d9d6c8f8-czbz9 --container kaldi-nl-api -- /bin/bash
 kubectl exec -ti dane-asr-worker-deployment-74d9d6c8f8-czbz9 --container dane-asr-worker -- /bin/bash
 
+# scale a deployment
+kubectl scale deployments/kaldi-nl-api-deployment --replicas=2
+
 # read this (debugging pods)
 
 https://kubernetes.io/docs/tasks/debug-application-cluster/debug-running-pod/
