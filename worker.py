@@ -70,6 +70,10 @@ class asr_worker(DANE.base_classes.base_worker):
 
 		#TODO check if the ASR service is available
 
+		if self.wait_for_asr_service() == False:
+			self.logger.error('Error: after 5 attempts the ASR service is still not ready! Stopping worker')
+			quit()
+
 		super().__init__(
 			self.__queue_name,
 			self.__binding_key,
@@ -78,6 +82,22 @@ class asr_worker(DANE.base_classes.base_worker):
 			True, #auto_connect
 			False #no_api
 		)
+
+	# make sure the service is ready before letting the server know that this worker is ready
+	def wait_for_asr_service(self, attempts=0):
+		url = 'http://{}:{}/ping'.format(
+			self.ASR_API_HOST,
+			self.ASR_API_PORT
+		)
+		resp = requests.get(url)
+		self.logger.info(resp.status_code)
+		self.logger.info(resp.text)
+		if resp.status_code == 200 and resp.text == "pong":
+			return True
+		if attempts < 5:
+			sleep(2)
+			self.wait_for_asr_service(attempts + 1)
+		return False
 
 	def init_logger(self, config):
 		logger = logging.getLogger('DANE-ASR')

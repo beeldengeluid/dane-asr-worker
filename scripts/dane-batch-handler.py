@@ -105,8 +105,8 @@ class DANEBatchHandler():
     def get_tasks_of_batch(self, batch_id):
         docs = self.get_doc_ids_of_batch(batch_id)
         all_tasks = []
+        print('Fetching tasks for batch: {}'.format(batch_id))
         for did in docs:
-            print('Fetching tasks for doc: {}'.format(did))
             tasks_url = '{}{}/tasks'.format(self.DANE_DOC_ENDPOINT, did)
             resp = requests.get(tasks_url)
             if resp.status_code == 200:
@@ -134,6 +134,12 @@ class DANEBatchHandler():
         print(task_ids)
         self.delete_task_ids(task_ids)
 
+    def retry_failed_tasks(self, task_ids):
+        for tid in task_ids:
+            url = '{}{}/retry'.format(self.DANE_TASK_ENDPOINT, tid)
+            resp = requests.get(url)
+            print(resp.text)
+
     """------------------------------------- MONITOR BATCH ------------------------------- """
 
     def monitor_batch(self, batch_id):
@@ -141,9 +147,15 @@ class DANEBatchHandler():
         tasks = self.get_tasks_of_batch(batch_id)
         print('FOUND {} TASKS, MONITORING NOW'.format(len(tasks)))
         print('*' * 50)
+        status_overview = self.generate_tasks_overview(tasks)
+        print(json.dumps(status_overview, indent=4, sort_keys=True))
+        sleep(10)
+        self.monitor_batch(batch_id)
+        print('-' * 50)
+
+    def generate_tasks_overview(self, tasks):
         status_overview = {}
         for t in tasks:
-
             if t['key'] in status_overview:
                 if t['state'] in status_overview[t['key']]['states']:
                     status_overview[t['key']]['states']['{}'.format(t['state'])]['tasks'].append(t['_id'])
@@ -161,11 +173,7 @@ class DANEBatchHandler():
                         }
                     }
                 }
-            #print('{} => {} ({}): {}'.format(t['_id'], t['key'], t['state'], t['msg']))
-        print(json.dumps(status_overview, indent=4, sort_keys=True))
-        sleep(10)
-        self.monitor_batch(batch_id)
-        print('-' * 50)
+        return status_overview
 
     def get_failed_download_urls(self, batch_id):
         tasks = self.get_tasks_of_batch(batch_id)
@@ -175,13 +183,53 @@ class DANEBatchHandler():
                 doc = self.get_doc(doc_id)
                 print(doc['target']['url'])
 
+    def get_failed_tasks(self, batch_id, task_key):
+        tasks = self.get_tasks_of_batch(batch_id)
+        status_overview = self.generate_tasks_overview(tasks)
+        failed_tasks = status_overview.get(task_key, {}).get('states', {}).get('500', {}).get('tasks', [])
+
+        print(failed_tasks)
+        return failed_tasks
+
     # TODO show a list of failed 404 download tasks and match them with dependant tasks that hit a 412
-    def correlate_404_unfinished_deps(self, batch_id):
-        pass
+    def correlate_404_unfinished_deps(self, batch_id, task_key):
+        tasks = self.get_tasks_of_batch(batch_id)
+        status_overview = self.generate_tasks_overview(tasks)
+        download_404s = status_overview.get('DOWNLOAD', {}).get('states', {}).get('404', {}).get('tasks', None)
+        task_412s = status_overview.get(task_key, {}).get('states', {}).get('412', {}).get('tasks', None)
+        parents_404 = set([self.get_parent_doc_id(t) for t in download_404s])
+        parents_412 = set([self.get_parent_doc_id(t) for t in task_412s])
+
+        print(parents_404)
+        print(parents_412)
+        print('what is the difference?')
+        if len(parents_404.difference(parents_412)) == 0:
+            print('ALL TASKS FAILED BECAUSE OF A FAILED DOWNLOAD')
+        else:
+            print('CERTAIN TASKS FAILED FOR OTHER REASONS THAN A FAILED DOWNLOAD')
 
     # TODO based on the start time of the batch and the amount of finished tasks, estimate the time to finish
-    def estimate_progress(self, batch_id):
-        pass
+    def estimate_progress(self, batch_id, task_key, start_time):
+        tasks = self.get_tasks_of_batch(batch_id)
+        status_overview = self.generate_tasks_overview(tasks)
+        states = status_overview.get(task_key, {}).get('states', {})
+        c_done = 0
+        c_queued = 0
+        c_problems = 0
+        for state in states.keys():
+            state_count = len(states[state].get('tasks', []))
+            print('# {} tasks: {}'.format(state, state_count))
+            if state == '200':
+                c_done += state_count
+            elif state == '102':
+                c_queued += state_count
+            else:
+                c_problems += state_count
+
+        print('# tasks done: {}'.format(c_done))
+        print('# tasks queued: {}'.format(c_queued))
+        print('# tasks with some kind of problem: {}'.format(c_problems))
+
 
 
 if __name__ == '__main__':
@@ -199,10 +247,20 @@ if __name__ == '__main__':
     #add_tasks_to_batch('radio-oranje', 'ASR')
 
     # monitor the DANE workers progress of the radio-oranje batch
-    dbh.monitor_batch('radio-oranje')
+    #dbh.monitor_batch('radio-oranje')
 
     # show which URLs could not be downloaded for the radio-oranje batch
     #dbh.get_failed_download_urls('radio-oranje')
+
+    # show if the failed downloads also affects all depending tasks
+    #dbh.correlate_404_unfinished_deps('radio-oranje', 'ASR')
+
+    # estimate the time it takes to finish the batch
+    dbh.estimate_progress('radio-oranje', 'ASR', None)
+
+    # get the failed tasks for a certain task_key
+    #failed_tasks = dbh.get_failed_tasks('radio-oranje', 'ASR')
+    #dbh.retry_failed_tasks(failed_tasks)
 
     # clean up all DANE tasks+results for the radio-oranje batch
     #dbh.clean_tasks_n_results_of_batch('radio-oranje')
