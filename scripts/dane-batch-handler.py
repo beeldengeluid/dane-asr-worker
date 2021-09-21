@@ -20,7 +20,6 @@ class DANEBatchHandler():
             port=self.config['DANE_ES_PORT'],
         )
 
-
     def load_config(self, cfg_file):
         try:
             with open(cfg_file, 'r') as yamlfile:
@@ -140,16 +139,21 @@ class DANEBatchHandler():
             resp = requests.get(url)
             print(resp.text)
 
-    """------------------------------------- MONITOR BATCH ------------------------------- """
+    """------------------------------------- MONITOR BATCH & STATS ------------------------------- """
 
-    def monitor_batch(self, batch_id):
+    def monitor_batch(self, batch_id, task_keys=['DOWNLOAD'], verbose=False):
         print('\t\tMONITORING BATCH: {}'.format(batch_id))
         tasks = self.get_tasks_of_batch(batch_id)
         print('FOUND {} TASKS, MONITORING NOW'.format(len(tasks)))
         print('*' * 50)
         status_overview = self.generate_tasks_overview(tasks)
-        print(json.dumps(status_overview, indent=4, sort_keys=True))
-        sleep(10)
+        if verbose:
+            print(json.dumps(status_overview, indent=4, sort_keys=True))
+        for key in task_keys:
+            print('Reporting the {} task'.format(key))
+            self.generate_progress_report(status_overview, key)
+        print('Waiting for 50 seconds')
+        sleep(50)
         self.monitor_batch(batch_id)
         print('-' * 50)
 
@@ -209,9 +213,12 @@ class DANEBatchHandler():
             print('CERTAIN TASKS FAILED FOR OTHER REASONS THAN A FAILED DOWNLOAD')
 
     # TODO based on the start time of the batch and the amount of finished tasks, estimate the time to finish
-    def estimate_progress(self, batch_id, task_key, start_time):
+    def show_batch_progress(self, batch_id, task_key):
         tasks = self.get_tasks_of_batch(batch_id)
         status_overview = self.generate_tasks_overview(tasks)
+        self.generate_progress_report(status_overview, task_key)
+
+    def generate_progress_report(self, status_overview, task_key):
         states = status_overview.get(task_key, {}).get('states', {})
         c_done = 0
         c_queued = 0
@@ -230,8 +237,6 @@ class DANEBatchHandler():
         print('# tasks queued: {}'.format(c_queued))
         print('# tasks with some kind of problem: {}'.format(c_problems))
 
-
-
 if __name__ == '__main__':
 
     dbh = DANEBatchHandler('config.yml')
@@ -247,7 +252,7 @@ if __name__ == '__main__':
     #add_tasks_to_batch('radio-oranje', 'ASR')
 
     # monitor the DANE workers progress of the radio-oranje batch
-    #dbh.monitor_batch('radio-oranje')
+    dbh.monitor_batch('radio-oranje', ['DOWNLOAD', 'ASR'])
 
     # show which URLs could not be downloaded for the radio-oranje batch
     #dbh.get_failed_download_urls('radio-oranje')
@@ -256,7 +261,7 @@ if __name__ == '__main__':
     #dbh.correlate_404_unfinished_deps('radio-oranje', 'ASR')
 
     # estimate the time it takes to finish the batch
-    dbh.estimate_progress('radio-oranje', 'ASR', None)
+    #dbh.show_batch_progress('radio-oranje', 'ASR')
 
     # get the failed tasks for a certain task_key
     #failed_tasks = dbh.get_failed_tasks('radio-oranje', 'ASR')
