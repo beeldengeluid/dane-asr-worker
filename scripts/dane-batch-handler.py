@@ -244,7 +244,7 @@ class DANEBatchHandler():
         print('# tasks queued: {}'.format(c_queued))
         print('# tasks with some kind of problem: {}'.format(c_problems))
 
-    def get_tasks_of_batch(self, creator_name, all_tasks=[], offset=0, size=20):
+    def get_tasks_of_batch(self, creator_name, all_tasks=[], offset=0, size=200):
         match_creator_query = {
             "bool":{
                 "must":[

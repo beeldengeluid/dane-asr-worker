@@ -24,9 +24,7 @@ kubectl create configmap dane-asr-worker-cfg --from-file config.yml
 echo -e "46.23.85.61\tvideohosting.beng.nl" >> /etc/hosts
 
 # create the secret used to access the docker registry in AWS (referred to in imagePullSecrets)
-
 kubectl create secret docker-registry xomg-aws-registry --docker-server={aws-server} --docker-username=AWS --docker-password={password}
-
 
 # login to the ECR
 aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin {aws-server}
