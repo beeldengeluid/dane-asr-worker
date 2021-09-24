@@ -8,8 +8,11 @@ from time import sleep
 
 class DANEBatchHandler():
 
+    # TODO make sure to harmonize/merge the batch_id and the batch_name!
     def __init__(self, cfg_file):
         self.config = self.load_config(cfg_file)
+        self.BATCH_ID = self.config['BATCH_ID'] # used to fetch all DANE docs from the batch file {batch_id}-batch.json
+        self.BATCH_NAME = self.config['BATCH_NAME'] # used to fetch all DANE tasks from ES via doc.creator.name
 
         self.DANE_DOC_ENDPOINT = '{}/DANE/document/'.format(self.config['DANE_SERVER'])
         self.DANE_DOCS_ENDPOINT = '{}/DANE/documents/'.format(self.config['DANE_SERVER'])
@@ -19,6 +22,10 @@ class DANEBatchHandler():
             host=self.config['DANE_ES_HOST'],
             port=self.config['DANE_ES_PORT'],
         )
+
+        self.MONITOR_INTERVAL = self.config['MONITOR_INTERVAL']
+
+        self.ES_QUERY_TIMEOUT = self.config['ES_QUERY_TIMEOUT']
 
     def load_config(self, cfg_file):
         try:
@@ -61,19 +68,19 @@ class DANEBatchHandler():
         return docs
 
     # submits the docs to DANE & writes them to the local batch file (INDEX-batch.json)
-    def submit_docs(self, docs, batch_id):
+    def submit_docs(self, docs):
         print("Trying to insert {} documents".format(len(docs)))
         r = requests.post(self.DANE_DOCS_ENDPOINT, data=json.dumps(docs))
         if r.status_code != 200:
             raise RuntimeError(str(r.status_code) + " " + r.text)
         print(r.text)
 
-        with open('{}-batch.json'.format(batch_id), 'w') as f:
+        with open('{}-batch.json'.format(self.BATCH_ID), 'w') as f:
             f.write(r.text)
 
     # use to feed the add_asr_task_to_docs() function
-    def get_doc_ids_of_batch(self, batch_id):
-        batch_data = json.load(open('{}-batch.json'.format(batch_id)))
+    def get_doc_ids_of_batch(self):
+        batch_data = json.load(open('{}-batch.json'.format(self.BATCH_ID)))
         if 'success' in batch_data:
             return [doc['_id'] for doc in batch_data['success']]
         return None
@@ -87,9 +94,9 @@ class DANEBatchHandler():
 
     """------------------------------------- TASK CRUD ------------------------------- """
 
-    def add_tasks_to_batch(self, batch_id, task_key):
+    def add_tasks_to_batch(self, task_key):
         print('going to submit {} for the following doc IDs'.format(task_key))
-        doc_ids = self.get_doc_ids_of_batch(batch_id)
+        doc_ids = self.get_doc_ids_of_batch(self.BATCH_ID)
         task = {
             "document_id": doc_ids,
             "key": task_key, # e.g. ASR, DOWNLOAD
@@ -101,10 +108,10 @@ class DANEBatchHandler():
             #raise RuntimeError(str(r.status_code) + " " + r.text)
         print(r.text)
 
-    def get_tasks_of_batch(self, batch_id):
-        docs = self.get_doc_ids_of_batch(batch_id)
+    def get_tasks_of_batch_old(self):
+        docs = self.get_doc_ids_of_batch(self.BATCH_ID)
         all_tasks = []
-        print('Fetching tasks for batch: {}'.format(batch_id))
+        print('Fetching tasks for batch: {}'.format(self.BATCH_ID))
         for did in docs:
             tasks_url = '{}{}/tasks'.format(self.DANE_DOC_ENDPOINT, did)
             resp = requests.get(tasks_url)
@@ -127,8 +134,8 @@ class DANEBatchHandler():
                 return result['_source']['role']['parent']
         return None
 
-    def clean_tasks_n_results_of_batch(self, batch_id):
-        tasks = self.get_tasks_of_batch(batch_id)
+    def clean_tasks_n_results_of_batch(self):
+        tasks = self.get_tasks_of_batch(self.BATCH_NAME)
         task_ids = [t['_id'] for t in tasks]
         print(task_ids)
         self.delete_task_ids(task_ids)
@@ -141,9 +148,9 @@ class DANEBatchHandler():
 
     """------------------------------------- MONITOR BATCH & STATS ------------------------------- """
 
-    def monitor_batch(self, batch_id, task_keys=['DOWNLOAD'], verbose=False):
-        print('\t\tMONITORING BATCH: {}'.format(batch_id))
-        tasks = self.get_tasks_of_batch(batch_id)
+    def monitor_batch(self, task_keys=['DOWNLOAD'], verbose=False):
+        print('\t\tMONITORING BATCH: {}'.format(self.BATCH_ID))
+        tasks = self.get_tasks_of_batch(self.BATCH_NAME)
         print('FOUND {} TASKS, MONITORING NOW'.format(len(tasks)))
         print('*' * 50)
         status_overview = self.generate_tasks_overview(tasks)
@@ -152,9 +159,9 @@ class DANEBatchHandler():
         for key in task_keys:
             print('Reporting the {} task'.format(key))
             self.generate_progress_report(status_overview, key)
-        print('Waiting for 50 seconds')
-        sleep(50)
-        self.monitor_batch(batch_id)
+        print('Waiting for {} seconds'.format(self.MONITOR_INTERVAL))
+        sleep(self.MONITOR_INTERVAL)
+        self.monitor_batch(task_keys, verbose)
         print('-' * 50)
 
     def generate_tasks_overview(self, tasks):
@@ -179,16 +186,16 @@ class DANEBatchHandler():
                 }
         return status_overview
 
-    def get_failed_download_urls(self, batch_id):
-        tasks = self.get_tasks_of_batch(batch_id)
+    def get_failed_download_urls(self):
+        tasks = self.get_tasks_of_batch(self.BATCH_NAME)
         for t in tasks:
             if t['state'] == '404':
                 doc_id = self.get_parent_doc_id(t['_id'])
                 doc = self.get_doc(doc_id)
                 print(doc['target']['url'])
 
-    def get_failed_tasks(self, batch_id, task_key):
-        tasks = self.get_tasks_of_batch(batch_id)
+    def get_failed_tasks(self, task_key):
+        tasks = self.get_tasks_of_batch(self.BATCH_NAME)
         status_overview = self.generate_tasks_overview(tasks)
         failed_tasks = status_overview.get(task_key, {}).get('states', {}).get('500', {}).get('tasks', [])
 
@@ -196,8 +203,8 @@ class DANEBatchHandler():
         return failed_tasks
 
     # TODO show a list of failed 404 download tasks and match them with dependant tasks that hit a 412
-    def correlate_404_unfinished_deps(self, batch_id, task_key):
-        tasks = self.get_tasks_of_batch(batch_id)
+    def correlate_404_unfinished_deps(self, task_key):
+        tasks = self.get_tasks_of_batch(self.BATCH_NAME)
         status_overview = self.generate_tasks_overview(tasks)
         download_404s = status_overview.get('DOWNLOAD', {}).get('states', {}).get('404', {}).get('tasks', None)
         task_412s = status_overview.get(task_key, {}).get('states', {}).get('412', {}).get('tasks', None)
@@ -213,8 +220,8 @@ class DANEBatchHandler():
             print('CERTAIN TASKS FAILED FOR OTHER REASONS THAN A FAILED DOWNLOAD')
 
     # TODO based on the start time of the batch and the amount of finished tasks, estimate the time to finish
-    def show_batch_progress(self, batch_id, task_key):
-        tasks = self.get_tasks_of_batch(batch_id)
+    def show_batch_progress(self, task_key):
+        tasks = self.get_tasks_of_batch(self.BATCH_NAME)
         status_overview = self.generate_tasks_overview(tasks)
         self.generate_progress_report(status_overview, task_key)
 
@@ -237,6 +244,65 @@ class DANEBatchHandler():
         print('# tasks queued: {}'.format(c_queued))
         print('# tasks with some kind of problem: {}'.format(c_problems))
 
+    def get_tasks_of_batch(self, creator_name, all_tasks=[], offset=0, size=20):
+        match_creator_query = {
+            "bool":{
+                "must":[
+                    {"query_string":{"default_field":"creator.id","query":"\"{}\"".format(creator_name)}}
+                ]
+            }
+        }
+        query = {
+            "_source": ["task", "created_at", "updated_at"],
+            "from": offset,
+            "size": size,
+            "query": {
+                "bool": {
+                    "must": [
+                        {
+                            "has_parent": {
+                                "parent_type": "document",
+                                "query": match_creator_query
+                            }
+                        },
+                        {
+                            "exists": {
+                                "field": "task.key"
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+
+        result = self.DANE_ES.search(
+            index=self.config['DANE_ES_INDEX'],
+            body=query,
+            request_timeout=self.ES_QUERY_TIMEOUT
+        )
+        if len(result['hits']['hits']) <= 0:
+            return all_tasks
+        else:
+            for hit in result['hits']['hits']:
+                all_tasks.append(self.__format_task(hit))
+            return self.get_tasks_of_batch(creator_name, all_tasks, offset + size, size)
+        print('not sure why, but returning here')
+        return all_tasks
+
+    def __format_task(self, es_hit):
+        return {
+            '_id' : es_hit['_id'],
+            'msg' : es_hit['_source']['task']['msg'],
+            'state' : es_hit['_source']['task']['state'],
+            'priority' : es_hit['_source']['task']['priority'],
+            'key' : es_hit['_source']['task']['key'],
+            'created_at' : es_hit['_source']['created_at'],
+            'updated_at' : es_hit['_source']['updated_at']
+        }
+
+
+
+
 if __name__ == '__main__':
 
     dbh = DANEBatchHandler('config.yml')
@@ -249,23 +315,23 @@ if __name__ == '__main__':
         dbh.submit_docs(dane_docs)
     """
     # assign the ASR task for the entire radio-oranje batch
-    #add_tasks_to_batch('radio-oranje', 'ASR')
+    #add_tasks_to_batch('ASR')
 
     # monitor the DANE workers progress of the radio-oranje batch
-    dbh.monitor_batch('radio-oranje', ['DOWNLOAD', 'ASR'])
+    dbh.monitor_batch(['DOWNLOAD', 'ASR'])
 
     # show which URLs could not be downloaded for the radio-oranje batch
-    #dbh.get_failed_download_urls('radio-oranje')
+    #dbh.get_failed_download_urls()
 
     # show if the failed downloads also affects all depending tasks
-    #dbh.correlate_404_unfinished_deps('radio-oranje', 'ASR')
+    #dbh.correlate_404_unfinished_deps('ASR')
 
     # estimate the time it takes to finish the batch
-    #dbh.show_batch_progress('radio-oranje', 'ASR')
+    #dbh.show_batch_progress('ASR')
 
     # get the failed tasks for a certain task_key
-    #failed_tasks = dbh.get_failed_tasks('radio-oranje', 'ASR')
+    #failed_tasks = dbh.get_failed_tasks('ASR')
     #dbh.retry_failed_tasks(failed_tasks)
 
     # clean up all DANE tasks+results for the radio-oranje batch
-    #dbh.clean_tasks_n_results_of_batch('radio-oranje')
+    #dbh.clean_tasks_n_results_of_batch()
