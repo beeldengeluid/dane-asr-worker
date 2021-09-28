@@ -201,7 +201,7 @@ spec:
     spec:
       containers: #Note: now trying out the multi-container setup, so each worker has its own kaldi container
       - name: dane-asr-worker
-        image: public.ecr.aws/a0x3r1t1/dane-asr-worker:v1.2
+        image: public.ecr.aws/a0x3r1t1/dane-asr-worker:v1.4
         imagePullPolicy: Always
         volumeMounts:
         - name: dane-cfg-mnt
