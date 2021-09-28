@@ -87,7 +87,7 @@ class EndToEndTest():
                             print('Waiting for 2 seconds to try again...')
                             sleep(2) # wait to seconds
                 else:
-                    print('could not fetch task?')
+                    print('Could not fetch task after it was created')
 
 
                 #finally delete the doc after the task has successfully ran (which will delete the task as well)
@@ -96,6 +96,8 @@ class EndToEndTest():
             else:
                 ok = self.test_delete_doc(doc_id)
                 print('Deleted doc for task that could not be created: {}'.format(ok))
+        else:
+            print('Could not create the test DANE doc at all')
 
     def run_asr_test(self):
         # 3nd test suite (test task CRUD also influencing worker queues)

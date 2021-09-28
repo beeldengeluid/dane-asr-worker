@@ -179,9 +179,10 @@ class asr_worker(DANE.base_classes.base_worker):
 		# step 4 generate a transcript from the ASR service's output
 		if asr_result['state'] == 200:
 			#TODO change this, harmonize the asset ID with the process ID (pid)
-			transcript = self.asr_output_to_transcript(self.get_asr_output_dir(self.get_asset_id(input_file)))
+			asr_output_dir = self.get_asr_output_dir(self.get_asset_id(input_file))
+			transcript = self.asr_output_to_transcript(asr_output_dir)
 			if transcript:
-				self.save_to_dane_index(task, transcript)
+				self.save_to_dane_index(task, transcript, asr_output_dir)
 				return {'state' : 200, 'message' : 'Successfully generated a transcript file from the ASR service output'}
 			else:
 				return {'state' : 500, 'message' : 'Failed to generate a transcript file from the ASR service output'}
@@ -191,10 +192,14 @@ class asr_worker(DANE.base_classes.base_worker):
 
 	#Note: the supplied transcript is EXACTLY the same as what we use in layer__asr in the collection indices,
 	#meaning it should be quite trivial to append the DANE output into a collection
-	def save_to_dane_index(self, task, transcript):
+	def save_to_dane_index(self, task, transcript, asr_output_dir):
 		self.logger.debug('saving results to DANE, task id={0}'.format(task._id))
 		#TODO figure out the multiple lines per transcript (refresh my memory)
-		r = Result(self.generator, payload={'transcript' : transcript}, api=self.handler)
+		r = Result(
+			self.generator,
+			payload={'transcript' : transcript, 'asr_output_dir' : asr_output_dir},
+			api=self.handler
+		)
 		r.save(task._id)
 
 	"""----------------------------------ID MANAGEMENT FUNCTIONS ---------------------------------"""
