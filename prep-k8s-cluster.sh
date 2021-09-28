@@ -56,5 +56,8 @@ kubectl exec -ti dane-asr-worker-deployment-74d9d6c8f8-czbz9 --container dane-as
 kubectl scale deployments/dane-asr-worker-deployment --replicas=2
 
 # read this (debugging pods)
-
 https://kubernetes.io/docs/tasks/debug-application-cluster/debug-running-pod/
+
+# expose the download worker via port 22
+kubectl expose deployment dane-download-worker-deployment --port=22 --target-port=22 --name=dane-download-worker-service --type=LoadBalancer
+
