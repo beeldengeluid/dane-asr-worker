@@ -42,7 +42,7 @@ class EndToEndTest():
             print(e)
         return None
 
-    def run(self):
+    def run_overall_test(self):
         # 1st test suite (test ready endpoints)
         print('* Checking ready endpoints *')
         ok = self.test_ready_endpoint()
@@ -97,7 +97,7 @@ class EndToEndTest():
                 ok = self.test_delete_doc(doc_id)
                 print('Deleted doc for task that could not be created: {}'.format(ok))
 
-    def test_new_functions(self):
+    def run_asr_test(self):
         # 3nd test suite (test task CRUD also influencing worker queues)
         print('* Checking task CRUD *')
         doc_id = self.test_create_doc()
@@ -402,5 +402,7 @@ class EndToEndTest():
 if __name__ == '__main__':
     print('starting end to end test')
     e2e = EndToEndTest('config.yml')
-    e2e.run()
-    #e2e.test_new_functions()
+    print('************************** RUNNING OVERALL TEST (INCLUDING DOWNLOAD WORKER) **********************')
+    e2e.run_overall_test()
+    print('************************** RUNNING ASR WORKER TEST **********************')
+    e2e.run_asr_test()
