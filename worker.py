@@ -55,7 +55,7 @@ class asr_worker(DANE.base_classes.base_worker):
 			self.logger.error('Missing configuration setting')
 			quit()
 
-		# check if the main
+		# check if the file system is setup properly
 		if not self.validate_data_dirs(self.ASR_INPUT_DIR, self.ASR_OUTPUT_DIR):
 			self.logger.debug('ERROR: data dirs not configured properly')
 			quit()
@@ -64,7 +64,7 @@ class asr_worker(DANE.base_classes.base_worker):
 		# listen to the same queue
 		self.__queue_name = 'ASR' #this is the queue that receives the work and NOT the reply queue
 		self.__binding_key = "#.ASR" #['Video.ASR', 'Sound.ASR']#'#.ASR'
-		self.__depends_on = ['DOWNLOAD']
+		self.__depends_on = ['DOWNLOAD'] #configure this!
 		#['DOWNLOAD'] TODO Nanne will support adding params to this, so it's possible to override the default Task being generated for the downloader
 		#self.__depends_on = [{ 'key': 'DOWNLOAD', 'some_arg': 'bla' }]
 

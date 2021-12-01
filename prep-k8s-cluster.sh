@@ -44,11 +44,13 @@ aws eks --region eu-west-1 update-kubeconfig --name test-cluster
 # switch context (e.g. from minikube to the aws/eks test-cluster)
 kubectl config use-context CONTEXT_NAME
 
+# switch namespace
+kubectl config set-context --current --namespace=bg-asr
+
 # list all contexts
 kubectl config get-contexts
 
 # connect to specific container in a pod
-
 kubectl exec -ti dane-asr-worker-deployment-74d9d6c8f8-czbz9 --container kaldi-nl-api -- /bin/bash
 kubectl exec -ti dane-asr-worker-deployment-74d9d6c8f8-czbz9 --container dane-asr-worker -- /bin/bash
 
@@ -58,6 +60,10 @@ kubectl scale deployments/dane-asr-worker-deployment --replicas=2
 # read this (debugging pods)
 https://kubernetes.io/docs/tasks/debug-application-cluster/debug-running-pod/
 
-# expose the download worker via port 22
+# expose the download worker via port 22, see:
+# 	https://betterprogramming.pub/how-to-ssh-into-a-kubernetes-pod-from-outside-the-cluster-354b4056c42b
+# 	https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/
 kubectl expose deployment dane-download-worker-deployment --port=22 --target-port=22 --name=dane-download-worker-service --type=LoadBalancer
 
+# for creating simple secrets such as API tokens etc
+kubectl create secret generic search-api-token --from-literal=SEARCH_API_TOKEN=something-secret

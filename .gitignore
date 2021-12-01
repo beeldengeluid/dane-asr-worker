@@ -1,5 +1,6 @@
 .DS_Store
 amz-k8s-contexts.yml
+k3s-k8s-context.yml
 local-k8s-contexts.yml
 mount
 config.yml

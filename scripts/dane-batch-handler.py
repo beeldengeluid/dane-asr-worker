@@ -108,6 +108,8 @@ class DANEBatchHandler():
             #raise RuntimeError(str(r.status_code) + " " + r.text)
         print(r.text)
 
+    """
+
     def get_tasks_of_batch_old(self):
         docs = self.get_doc_ids_of_batch(self.BATCH_ID)
         all_tasks = []
@@ -119,6 +121,7 @@ class DANEBatchHandler():
                 tasks = json.loads(resp.text)
                 all_tasks.extend(tasks)
         return all_tasks
+    """
 
     def delete_task_ids(self, task_ids):
         for tid in task_ids:
