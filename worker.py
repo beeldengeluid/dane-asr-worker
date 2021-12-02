@@ -51,8 +51,9 @@ class asr_worker(DANE.base_classes.base_worker):
 			self.ASR_API_PORT: int = config.ASR_API.PORT
 			self.ASR_API_WAIT_FOR_COMPLETION: bool = config.ASR_API.WAIT_FOR_COMPLETION
 			self.ASR_API_SIMULATE: bool = config.ASR_API.SIMULATE
+			self.DANE_DEPENDENCIES: list = config.DANE_DEPENDENCIES
 		except AttributeError as e:
-			self.logger.error('Missing configuration setting')
+			self.logger.exception('Missing configuration setting')
 			quit()
 
 		# check if the file system is setup properly
@@ -64,12 +65,9 @@ class asr_worker(DANE.base_classes.base_worker):
 		# listen to the same queue
 		self.__queue_name = 'ASR' #this is the queue that receives the work and NOT the reply queue
 		self.__binding_key = "#.ASR" #['Video.ASR', 'Sound.ASR']#'#.ASR'
-		self.__depends_on = ['DOWNLOAD'] #configure this!
-		#['DOWNLOAD'] TODO Nanne will support adding params to this, so it's possible to override the default Task being generated for the downloader
-		#self.__depends_on = [{ 'key': 'DOWNLOAD', 'some_arg': 'bla' }]
+		self.__depends_on = self.DANE_DEPENDENCIES
 
-		#TODO check if the ASR service is available
-
+		# check if the ASR service is available
 		if self.wait_for_asr_service() == False:
 			self.logger.error('Error: after 5 attempts the ASR service is still not ready! Stopping worker')
 			quit()

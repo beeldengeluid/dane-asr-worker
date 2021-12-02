@@ -33,4 +33,5 @@ FILE_SYSTEM:
 PATHS:
     TEMP_FOLDER: "/mnt/dane-fs/input-files"
     OUT_FOLDER: "/mnt/dane-fs/output-files"
+DANE_DEPENDENCIES: ['BG_DOWNLOAD']
 
