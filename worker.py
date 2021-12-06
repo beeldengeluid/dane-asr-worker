@@ -39,7 +39,6 @@ class asr_worker(DANE.base_classes.base_worker):
 		# Note: base_config is loaded first by DANE, so make sure you overwrite everything in your config.yml!
 		try:
 			# put all of the relevant settings in a variable
-			self.USE_DANE_DOWNLOADER: bool = config.FILE_SYSTEM.USE_DANE_DOWNLOADER
 			self.BASE_MOUNT: str = config.FILE_SYSTEM.BASE_MOUNT
 
 			# construct the input & output paths using the base mount as a parent dir
@@ -51,7 +50,7 @@ class asr_worker(DANE.base_classes.base_worker):
 			self.ASR_API_PORT: int = config.ASR_API.PORT
 			self.ASR_API_WAIT_FOR_COMPLETION: bool = config.ASR_API.WAIT_FOR_COMPLETION
 			self.ASR_API_SIMULATE: bool = config.ASR_API.SIMULATE
-			self.DANE_DEPENDENCIES: list = config.DANE_DEPENDENCIES
+			self.DANE_DEPENDENCIES: list = config.DANE_DEPENDENCIES if 'DANE_DEPENDENCIES' in config else []
 		except AttributeError as e:
 			self.logger.exception('Missing configuration setting')
 			quit()
@@ -80,6 +79,15 @@ class asr_worker(DANE.base_classes.base_worker):
 			True, #auto_connect
 			False #no_api
 		)
+
+	def __get_downloader_type(self):
+		self.logger.debug('determining downloader type')
+		if 'DOWNLOAD' in self.DANE_DEPENDENCIES:
+			return 'DOWNLOAD'
+		elif 'BG_DOWNLOAD' in self.DANE_DEPENDENCIES:
+			return 'BG_DOWNLOAD'
+		self.logger.warning('Warning: did not find DOWNLOAD or BG_DOWNLOAD in worker dependencies')
+		return None
 
 	# make sure the service is ready before letting the server know that this worker is ready
 	def wait_for_asr_service(self, attempts=0):
@@ -158,8 +166,11 @@ class asr_worker(DANE.base_classes.base_worker):
 		self.logger.debug(task)
 		self.logger.debug(doc)
 
+		# either DOWNLOAD, BG_DOWNLOAD or None (meaning the ASR worker will try to download the data itself)
+		downloader_type = self.__get_downloader_type()
+
 		# step 1 (temporary, until DOWNLOAD depency accepts params to override download dir)
-		input_file = self.fetch_downloaded_content(doc) if self.USE_DANE_DOWNLOADER else None
+		input_file = self.fetch_downloaded_content(doc) if downloader_type is not None else None
 
 		if input_file == None:
 			self.logger.debug('The file was not downloaded by the DANE worker, downloading it myself...')
@@ -241,15 +252,18 @@ class asr_worker(DANE.base_classes.base_worker):
 				file.close()
 		return fn
 
-	#TODO make sure this works
 	def fetch_downloaded_content(self, doc):
 		self.logger.debug('checking download worker output')
+		downloader_type = self.__get_downloader_type()
+		if not downloader_type:
+			return None
+
 		try:
-			possibles = self.handler.searchResult(doc._id, 'DOWNLOAD')
+			possibles = self.handler.searchResult(doc._id, downloader_type)
 			self.logger.debug(possibles)
-			return possibles[0].payload['file_path']
+			return possibles[0].payload['file_path'] # both used in BG_DOWNLOAD and DOWNLOAD DANE.Result
 		except KeyError as e:
-			self.logger.debug(e)
+			self.logger.exception(e)
 
 		return None
 
