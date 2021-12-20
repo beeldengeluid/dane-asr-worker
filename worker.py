@@ -24,9 +24,17 @@ audiovisual input.
 
 The input file is obtained by requesting the file path from the document index. This file path SHOULD have been
 made available by the download worker (before the task was received in this worker)
+"""
 
-TODO catch pika.exceptions.ConnectionClosedByBroker in case the rabbitMQ is not available
-TODO maybe use https://medium.com/@aliasav/how-follow-a-file-in-python-tail-f-in-python-bca026a901cf
+
+"""
+TODO now the output dir created by by DANE (createDirs()) for the PATHS.OUT_FOLDER is not used:
+
+- /mnt/dane-fs/output-files/03/d2/8a/03d28a03643a981284b403b91b95f6048576c234
+
+Instead we put the ASR in:
+
+- /mnt/dane-fs/output-files/asr-output/{asset-id}
 """
 
 class asr_worker(DANE.base_classes.base_worker):
@@ -51,6 +59,7 @@ class asr_worker(DANE.base_classes.base_worker):
 			self.ASR_API_WAIT_FOR_COMPLETION: bool = config.ASR_API.WAIT_FOR_COMPLETION
 			self.ASR_API_SIMULATE: bool = config.ASR_API.SIMULATE
 			self.DANE_DEPENDENCIES: list = config.DANE_DEPENDENCIES if 'DANE_DEPENDENCIES' in config else []
+			self.DELETE_INPUT_ON_COMPLETION: bool = config.DELETE_INPUT_ON_COMPLETION if 'DELETE_INPUT_ON_COMPLETION' in config else []
 		except AttributeError as e:
 			self.logger.exception('Missing configuration setting')
 			quit()
@@ -166,6 +175,9 @@ class asr_worker(DANE.base_classes.base_worker):
 		self.logger.debug(task)
 		self.logger.debug(doc)
 
+		#TODO check if a transcript was already generated
+
+
 		# either DOWNLOAD, BG_DOWNLOAD or None (meaning the ASR worker will try to download the data itself)
 		downloader_type = self.__get_downloader_type()
 
@@ -191,13 +203,40 @@ class asr_worker(DANE.base_classes.base_worker):
 			asr_output_dir = self.get_asr_output_dir(self.get_asset_id(input_file))
 			transcript = self.asr_output_to_transcript(asr_output_dir)
 			if transcript:
-				self.save_to_dane_index(task, transcript, asr_output_dir)
-				return {'state' : 200, 'message' : 'Successfully generated a transcript file from the ASR service output'}
+				if self.cleanup_input_file(input_file, self.DELETE_INPUT_ON_COMPLETION):
+					self.save_to_dane_index(task, transcript, asr_output_dir)
+					return {'state' : 200, 'message' : 'Successfully generated a transcript file from the ASR service output'}
+				else:
+					return {'state' : 500, 'message' : 'Generated a transcript, but could not delete the input file'}
 			else:
 				return {'state' : 500, 'message' : 'Failed to generate a transcript file from the ASR service output'}
 
 		#something went wrong inside the ASR service, return that response here
 		return asr_result
+
+	def cleanup_input_file(self, input_file, actually_delete):
+		self.logger.debug(f"Verifying deletion of input file: {input_file}")
+		if actually_delete == False:
+			return True
+
+		# first remove the input file
+		try:
+			os.remove(input_file)
+		except OSError as e:
+			self.logger.exception('Could not delete input file')
+			return False
+
+		# now remove the "chunked path" from /mnt/dane-fs/input-files/03/d2/8a/03d28a03643a981284b403b91b95f6048576c234
+
+		try:
+			os.chdir(self.ASR_INPUT_DIR) # cd /mnt/dane-fs/input-files
+			os.removedirs(f".{input_file[len(self.ASR_INPUT_DIR):]}") # /03/d2/8a/03d28a03643a981284b403b91b95f6048576c234
+		except OSError as e:
+			self.logger.exception('OSError while removing empty input file dirs')
+		except FileNotFoundError as e:
+			self.logger.exception('FileNotFoundError while removing empty input file dirs')
+
+		return True # return True even if empty dirs were not removed
 
 	#Note: the supplied transcript is EXACTLY the same as what we use in layer__asr in the collection indices,
 	#meaning it should be quite trivial to append the DANE output into a collection
