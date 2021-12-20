@@ -222,15 +222,19 @@ class asr_worker(DANE.base_classes.base_worker):
 		# first remove the input file
 		try:
 			os.remove(input_file)
+			# also remove the transcoded mp3 file (if any)
+			if input_file.find('.mp3') == -1 and input_file.find('.') != -1:
+				mp3_input_file = f"{input_file[:input_file.rfind('.')]}.mp3"
+				if os.path.exists(mp3_input_file):
+					os.remove(mp3_input_file)
 		except OSError as e:
 			self.logger.exception('Could not delete input file')
 			return False
 
-		# now remove the "chunked path" from /mnt/dane-fs/input-files/03/d2/8a/03d28a03643a981284b403b91b95f6048576c234
-
+		# now remove the "chunked path" from /mnt/dane-fs/input-files/03/d2/8a/03d28a03643a981284b403b91b95f6048576c234/xyz.mp4
 		try:
 			os.chdir(self.ASR_INPUT_DIR) # cd /mnt/dane-fs/input-files
-			os.removedirs(f".{input_file[len(self.ASR_INPUT_DIR):]}") # /03/d2/8a/03d28a03643a981284b403b91b95f6048576c234
+			os.removedirs(f".{input_file[len(self.ASR_INPUT_DIR):input_file.rfind(os.sep)]}") # /03/d2/8a/03d28a03643a981284b403b91b95f6048576c234
 		except OSError as e:
 			self.logger.exception('OSError while removing empty input file dirs')
 		except FileNotFoundError as e:
