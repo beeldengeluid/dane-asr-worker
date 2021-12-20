@@ -170,18 +170,19 @@ class DANEBatchHandler():
     def generate_tasks_overview(self, tasks):
         status_overview = {}
         for t in tasks:
+            task_state = f"{t['state']}"
             if t['key'] in status_overview:
-                if t['state'] in status_overview[t['key']]['states']:
-                    status_overview[t['key']]['states']['{}'.format(t['state'])]['tasks'].append(t['_id'])
+                if task_state in status_overview[t['key']]['states']:
+                    status_overview[t['key']]['states'][task_state]['tasks'].append(t['_id'])
                 else:
-                    status_overview[t['key']]['states']['{}'.format(t['state'])] = {
+                    status_overview[t['key']]['states'][task_state] = {
                     'msg' : t['msg'],
                     'tasks' : [t['_id']]
                 }
             else:
                 status_overview[t['key']] = {
                     'states' : {
-                        '{}'.format(t['state']) : {
+                        task_state : {
                             'msg' : t['msg'],
                             'tasks' : [t['_id']]
                         }
