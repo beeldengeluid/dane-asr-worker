@@ -29,6 +29,9 @@ FILE_SYSTEM:
     BASE_MOUNT: '/mnt/dane-fs' #'mount' when running locally
     INPUT_DIR: 'input-files'
     OUTPUT_DIR: 'output-files/asr-output'
+LOGGING:
+    LEVEL: 'DEBUG'
+    DIR: 'logs'
 PATHS:
     TEMP_FOLDER: "/mnt/dane-fs/input-files"
     OUT_FOLDER: "/mnt/dane-fs/output-files"
