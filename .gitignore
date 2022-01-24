@@ -8,3 +8,4 @@ logs
 scripts/assign_task.py
 scripts/make_docs.py
 scripts/radio-oranje-batch.json
+.coverage

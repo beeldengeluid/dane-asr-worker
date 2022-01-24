@@ -1,17 +1,11 @@
 import json
+from elasticsearch import Elasticsearch, TransportError
 
-from elasticsearch import Elasticsearch, NotFoundError, TransportError
-from elasticsearch.client import IndicesClient
-from elasticsearch.exceptions import ConnectionError
 
-class ESHandler():
-
+class ESHandler:
     def __init__(self, config):
         self.config = config
-        self.es = Elasticsearch(
-            host=config['host'],
-            port=config['port']
-        )
+        self.es = Elasticsearch(host=config["host"], port=config["port"])
         print(self.es.info())
 
     def search(self, query, es_index=None, timeout=50):
@@ -23,14 +17,14 @@ class ESHandler():
         except TransportError as te:
             print("TransportError")
             if te.status_code == 404:
-                raise ValueError('not_found')
+                raise ValueError("not_found")
             else:
-                raise ValueError('bad_request')
-        except Exception as e:
+                raise ValueError("bad_request")
+        except Exception:
             print("Exception")
-            raise ValueError('internal_server_error')
+            raise ValueError("internal_server_error")
 
-        if resp and 'hits' in resp:
-            return resp['hits']
+        if resp and "hits" in resp:
+            return resp["hits"]
         else:
-            raise ValueError('internal_server_error')
+            raise ValueError("internal_server_error")
