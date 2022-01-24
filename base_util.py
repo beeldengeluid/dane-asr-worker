@@ -11,6 +11,8 @@ Important note on how DANE builds up it's config (which is supplied to validate_
     THEN the local base_config.yml will overwrite anything specified
     THEN the local config.yml will overwrite anything specified there
 """
+
+
 def validate_config(config, validate_file_paths=True):
     try:
         __validate_environment_variables()
@@ -68,18 +70,28 @@ def validate_config(config, validate_file_paths=True):
         assert __check_setting(config.ASR_API.HOST, str), "ASR_API.HOST"
         assert __check_setting(config.ASR_API.PORT, int), "ASR_API.PORT"
         assert __check_setting(config.ASR_API.SIMULATE, bool), "ASR_API.SIMULATE"
-        assert __check_setting(config.ASR_API.WAIT_FOR_COMPLETION, bool), "ASR_API.WAIT_FOR_COMPLETION"
+        assert __check_setting(
+            config.ASR_API.WAIT_FOR_COMPLETION, bool
+        ), "ASR_API.WAIT_FOR_COMPLETION"
 
         assert config.FILE_SYSTEM, "FILE_SYSTEM"
-        assert __check_setting(config.FILE_SYSTEM.BASE_MOUNT, str), "FILE_SYSTEM.BASE_MOUNT"
-        assert __check_setting(config.FILE_SYSTEM.INPUT_DIR, str), "FILE_SYSTEM.INPUT_DIR"
-        assert __check_setting(config.FILE_SYSTEM.OUTPUT_DIR, str), "FILE_SYSTEM.OUTPUT_DIR"
+        assert __check_setting(
+            config.FILE_SYSTEM.BASE_MOUNT, str
+        ), "FILE_SYSTEM.BASE_MOUNT"
+        assert __check_setting(
+            config.FILE_SYSTEM.INPUT_DIR, str
+        ), "FILE_SYSTEM.INPUT_DIR"
+        assert __check_setting(
+            config.FILE_SYSTEM.OUTPUT_DIR, str
+        ), "FILE_SYSTEM.OUTPUT_DIR"
 
         assert __check_setting(config.DANE_DEPENDENCIES, list), "DANE_DEPENDENCIES"
         for dep in config.DANE_DEPENDENCIES:
             assert type(dep) == str, "Invalid DANE_DEPENDENCIES"
 
-        assert __check_setting(config.DELETE_INPUT_ON_COMPLETION, bool), "DELETE_INPUT_ON_COMPLETION"
+        assert __check_setting(
+            config.DELETE_INPUT_ON_COMPLETION, bool
+        ), "DELETE_INPUT_ON_COMPLETION"
 
         # validate file paths (not while unit testing)
         if validate_file_paths:
