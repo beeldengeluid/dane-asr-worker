@@ -1,4 +1,4 @@
-config-k8s.yml
+config_k8s.yml
 config.yml
 .gitignore
 README.md
