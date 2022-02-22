@@ -37,7 +37,7 @@ Instead we put the ASR in:
 """
 
 
-class asr_worker(DANE.base_classes.base_worker):
+class AsrWorker(DANE.base_classes.base_worker):
     def __init__(self, config):
         self.logger = init_logger(config)
         self.logger.debug(config)
@@ -505,7 +505,7 @@ class asr_worker(DANE.base_classes.base_worker):
 
 # Start the worker
 if __name__ == "__main__":
-    w = asr_worker(cfg)
+    w = AsrWorker(cfg)
     try:
         w.run()
     except (KeyboardInterrupt, SystemExit):
