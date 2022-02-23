@@ -92,21 +92,23 @@ class AsrWorker(DANE.base_classes.base_worker):
         self.__binding_key = "#.ASR"  # ['Video.ASR', 'Sound.ASR']#'#.ASR'
         self.__depends_on = self.DANE_DEPENDENCIES
 
-        # check if the ASR service is available
-        if self.wait_for_asr_service() is False:
-            self.logger.error(
-                "Error: after 5 attempts the ASR service is still not ready! Stopping worker"
-            )
-            quit()
+        if (
+            not self.UNIT_TESTING
+        ):  # do not connect to DANE or ASR service while unit testing
+            if self.wait_for_asr_service() is False:
+                self.logger.error(
+                    "Error: after 5 attempts the ASR service is still not ready! Stopping worker"
+                )
+                quit()
 
-        super().__init__(
-            self.__queue_name,
-            self.__binding_key,
-            config,
-            self.__depends_on,
-            True,  # auto_connect
-            False,  # no_api
-        )
+            super().__init__(
+                self.__queue_name,
+                self.__binding_key,
+                config,
+                self.__depends_on,
+                True,  # auto_connect
+                False,  # no_api
+            )
 
     def __get_downloader_type(self):
         self.logger.debug("determining downloader type")
