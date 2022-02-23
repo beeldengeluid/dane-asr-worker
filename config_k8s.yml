@@ -11,6 +11,7 @@
 #       base_config.yml and config.yml are in .dockerignore (so they cannot overwrite ~/.DANE/config.yml)
 #
 # Note: For local testing, copy this file to config.yml (in main dir of this repo)
+RABBITMQ:
     HOST: 'dane-rabbitmq-api.default.svc.cluster.local' # when using default namespace in k8s
     PORT: 5672  # RMQ default
     EXCHANGE: 'DANE-exchange' # DANE-server default
