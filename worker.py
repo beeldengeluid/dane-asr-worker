@@ -95,7 +95,7 @@ class asr_worker(DANE.base_classes.base_worker):
         # check if the ASR service is available
         if self.wait_for_asr_service() is False:
             self.logger.error(
-                "Error: after 5 attempts the ASR service is still not ready! Stopping worker"
+                "Error: after 100 attempts the ASR service is still not ready! Stopping worker"
             )
             quit()
 
@@ -127,7 +127,7 @@ class asr_worker(DANE.base_classes.base_worker):
         self.logger.info(resp.text)
         if resp.status_code == 200 and resp.text == "pong":
             return True
-        if attempts < 5:
+        if attempts < 100:  # TODO add to configuration
             sleep(2)
             self.wait_for_asr_service(attempts + 1)
         return False
