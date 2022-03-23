@@ -1,0 +1,45 @@
+# Important for understanding DANE configs: https://github.com/CLARIAH/DANE/blob/main/DANE/config.py
+#   FIRST the config in the python module DANE.cfg.cfg is used
+#   THEN the home dir config is applied (~/.DANE/config.yml),
+#   THEN the base_config.yml will overwrite anything,
+#   THEN the local config.yml
+#
+# Therefore, we use:
+# - For local testing: a local config.yml (copy based on this file)
+# - In k8s mode: create a k8s ConfigMap (--from-file config.yml) and mount it in ~/.DANE/config.yml
+#
+# Note: it does not seem possible to mount a ConfigMap in the root dir of the worker, so
+#       base_config.yml and config.yml are in .dockerignore (so they cannot overwrite ~/.DANE/config.yml)
+#
+# Note: For local testing, copy this file to config.yml (in main dir of this repo)
+RABBITMQ:
+    HOST: 'dane-rabbitmq-api.default.svc.cluster.local' # when using default namespace in k8s
+    PORT: 5672  # RMQ default
+    EXCHANGE: 'DANE-exchange' # DANE-server default
+    RESPONSE_QUEUE: 'DANE-response-queue' # DANE-server default
+    USER: 'guest' # RMQ default
+    PASSWORD: 'guest' # RMQ default
+ELASTICSEARCH: # common settings for each DANE worker to connect to DANE-server Elasticsearch cluster
+    HOST: ['elasticsearch']
+    PORT: 9200 # ES default
+    USER: '' # ES default
+    PASSWORD: '' # ES default
+    SCHEME: 'http' # connection protocol for ELASTICSEARCH.HOST
+    INDEX: 'dane-index-ENVIRONMENT-NAME' # suggestion: use a simple prefix followed by environment name
+ASR_API: # settings specific for this worker
+    HOST: 'localhost' #'dane-asr-api.default.svc.cluster.local'
+    PORT: 3023 # target port 3023, but mapped to 80 by k8s service
+    SIMULATE: false
+    WAIT_FOR_COMPLETION: true
+FILE_SYSTEM:
+    BASE_MOUNT: '/mnt/dane-fs' #'mount' when running locally
+    INPUT_DIR: 'input-files'
+    OUTPUT_DIR: 'output-files/asr-output'
+LOGGING: # used in base_util.py
+    LEVEL: 'DEBUG' # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    DIR: 'logs' # directory relative from worker.py
+PATHS: # common settings for each DANE worker to define input/output dirs (with a common mount point)
+    TEMP_FOLDER: "/mnt/dane-fs/input-files" # directory is automatically created (use ./mount for local testing)
+    OUT_FOLDER: "/mnt/dane-fs/output-files" # directory is automatically created (use ./mount for local testing)
+DANE_DEPENDENCIES: ['BG_DOWNLOAD'] # this param is optional, will be defaulted to [] if absent
+DELETE_INPUT_ON_COMPLETION: True # this param is optional, will be defaulted to False if absent
