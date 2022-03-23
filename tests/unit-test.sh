@@ -19,5 +19,5 @@ pipenv run flake8 . --count --select=E9,F63,F7,F82,W191 --show-source --statisti
 # exit-zero treats all errors as warnings
 pipenv run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics --extend-ignore=E203,E501 --select=C,E,F,W,B,B950
 
-# check formatting
+# check formatting (configured in pyproject.toml)
 black --check .
