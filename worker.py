@@ -1,3 +1,5 @@
+from typing import List, TypedDict
+
 import DANE.base_classes
 from DANE.config import cfg
 from DANE import Result
@@ -35,6 +37,18 @@ Instead we put the ASR in:
 
 - /mnt/dane-fs/output-files/asr-output/{asset-id}
 """
+
+
+# types
+
+
+class ParsedResult(TypedDict):
+    words: str
+    wordTimes: List[int]
+    start: float
+    sequenceNr: int
+    fragmentId: str
+    carrierId: str
 
 
 class AsrWorker(DANE.base_classes.base_worker):
