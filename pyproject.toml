@@ -29,11 +29,12 @@ exclude = '''
 
 [tool.mypy]
 python_version = "3.8"
-ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
-  'requests',
+  'DANE.*',
+  'mockito',
+  'pika',
   'yaml',
 ]
 ignore_missing_imports = true
