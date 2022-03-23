@@ -1,3 +1,11 @@
+[tool.pytest.ini_options]
+testpaths = [
+  "tests/unit",
+]
+addopts = [
+  "--cov",
+]
+
 [tool.black]
 line-length = 88
 target_version = ['py38']

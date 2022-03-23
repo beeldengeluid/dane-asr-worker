@@ -11,8 +11,9 @@ if [ ! -z "$USE_VENV" ] ; then
 fi
 
 cd ../
-pytest tests/unit_tests --cov
 
+# test (configured in pyproject.toml)
+pytest
 
 # quit if there are Python syntax errors or undefined names
 pipenv run flake8 . --count --select=E9,F63,F7,F82,W191 --show-source --statistics
