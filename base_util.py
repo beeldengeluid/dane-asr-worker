@@ -138,7 +138,7 @@ def __check_log_level(level: str) -> bool:
     return level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
-def __validate_parent_dirs(paths: list) -> bool:
+def __validate_parent_dirs(paths: list):
     try:
         for p in paths:
             assert os.path.exists(
