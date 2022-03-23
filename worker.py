@@ -92,8 +92,8 @@ class asr_worker(DANE.base_classes.base_worker):
         self.__binding_key = "#.ASR"  # ['Video.ASR', 'Sound.ASR']#'#.ASR'
         self.__depends_on = self.DANE_DEPENDENCIES
 
-        # check if the ASR service is available
-        if self.wait_for_asr_service() is False:
+        needs_asr_service = not self.UNIT_TESTING
+        if needs_asr_service and not self.wait_for_asr_service():
             self.logger.error(
                 "Error: after 100 attempts the ASR service is still not ready! Stopping worker"
             )
@@ -104,8 +104,8 @@ class asr_worker(DANE.base_classes.base_worker):
             self.__binding_key,
             config,
             self.__depends_on,
-            True,  # auto_connect
-            False,  # no_api
+            auto_connect=not self.UNIT_TESTING,
+            no_api=self.UNIT_TESTING,
         )
 
     def __get_downloader_type(self):
