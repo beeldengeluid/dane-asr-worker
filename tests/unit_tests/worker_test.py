@@ -31,9 +31,7 @@ DUMMY_RESULT = Result.from_json(
                 "name": "ASR",
                 "homepage": "git@github.com:beeldengeluid/dane-asr-worker.git",
             },
-            "payload": {
-                "TODO" : "TODO"
-            },
+            "payload": {"TODO": "TODO"},
         }
     )
 )
