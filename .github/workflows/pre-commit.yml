@@ -26,6 +26,7 @@ jobs:
     - name: "test"
       run: |
         cp config_test.yml config.yml
+        mkdir mount
         poetry run pytest
 
     - name: "flake8"
