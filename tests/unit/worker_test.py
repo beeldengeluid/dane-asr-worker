@@ -1,6 +1,9 @@
 import json
 
 from DANE import Document, Result, Task
+import pytest
+
+import worker
 
 DUMMY_FILE_PATH = "path/to/download/file.mp3"
 DUMMY_DANE_DIRS = {
@@ -36,3 +39,37 @@ DUMMY_RESULT = Result.from_json(
         }
     )
 )
+
+
+@pytest.fixture(scope="module")
+def asr_worker(config) -> worker.AsrWorker:
+    return worker.AsrWorker(config)
+
+
+"""----------------------------------ID MANAGEMENT FUNCTIONS ---------------------------------"""
+
+
+@pytest.mark.parametrize(
+    "input_file, asset_id",
+    [
+        ("/path/to/download/file.mp3", "file"),
+        ("/path/with/extra//file.mp3", "file"),
+        ("~/relative/path/file.mp3", "file"),
+        (
+            "/path/to/download/file.with.many.extensions.mp3",
+            "file.with.many.extensions",
+        ),
+    ],
+)
+def test_get_asset_id(asr_worker, input_file, asset_id):
+    assert asr_worker.get_asset_id(input_file) == asset_id
+
+
+@pytest.mark.parametrize(
+    "s, hash",
+    [
+        ("file.mp3", "906442a8f0c659227e6af143de05511545cbe0fd28385275ff0e4983"),
+    ],
+)
+def test_hash_string(asr_worker, s, hash):
+    assert asr_worker.hash_string(s) == hash
