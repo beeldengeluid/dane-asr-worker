@@ -9,6 +9,7 @@ mockito = "*"
 flake8 = "*"
 pytest-cov = "*"
 black = "*"
+mypy = "*"
 
 [packages]
 requests = "*"
