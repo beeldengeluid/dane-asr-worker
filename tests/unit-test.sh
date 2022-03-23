@@ -20,3 +20,6 @@ flake8
 
 # check formatting (configured in pyproject.toml)
 black --check .
+
+# static type check (configured in pyproject.toml)
+mypy .

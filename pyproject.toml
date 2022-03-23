@@ -26,3 +26,14 @@ exclude = '''
   )/
 )
 '''
+
+[tool.mypy]
+python_version = "3.8"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+  'requests',
+  'yaml',
+]
+ignore_missing_imports = true
