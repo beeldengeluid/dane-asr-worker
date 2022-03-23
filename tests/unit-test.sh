@@ -7,7 +7,7 @@ cd "$SCRIPTPATH"
 
 
 if [ ! -z "$USE_VENV" ] ; then
-	pipenv shell
+	poetry shell
 fi
 
 cd ../
