@@ -10,6 +10,7 @@ flake8 = "*"
 pytest-cov = "*"
 black = "*"
 mypy = "*"
+types-requests = "*"
 
 [packages]
 requests = "*"
