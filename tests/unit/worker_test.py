@@ -1,5 +1,6 @@
 import json
-from DANE import Result, Document, Task
+
+from DANE import Document, Result, Task
 
 DUMMY_FILE_PATH = "path/to/download/file.mp3"
 DUMMY_DANE_DIRS = {
