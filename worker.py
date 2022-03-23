@@ -1,3 +1,5 @@
+from typing import List, TypedDict
+
 import DANE.base_classes
 from DANE.config import cfg
 from DANE import Result
@@ -37,7 +39,19 @@ Instead we put the ASR in:
 """
 
 
-class asr_worker(DANE.base_classes.base_worker):
+# types
+
+
+class ParsedResult(TypedDict):
+    words: str
+    wordTimes: List[int]
+    start: float
+    sequenceNr: int
+    fragmentId: str
+    carrierId: str
+
+
+class AsrWorker(DANE.base_classes.base_worker):
     def __init__(self, config):
         self.logger = init_logger(config)
         self.logger.debug(config)
@@ -82,7 +96,8 @@ class asr_worker(DANE.base_classes.base_worker):
         # check if the file system is setup properly
         if not self.validate_data_dirs(self.ASR_INPUT_DIR, self.ASR_OUTPUT_DIR):
             self.logger.debug("ERROR: data dirs not configured properly")
-            quit()
+            if not self.UNIT_TESTING:
+                quit()
 
         # we specify a queue name because every worker of this type should
         # listen to the same queue
@@ -92,8 +107,8 @@ class asr_worker(DANE.base_classes.base_worker):
         self.__binding_key = "#.ASR"  # ['Video.ASR', 'Sound.ASR']#'#.ASR'
         self.__depends_on = self.DANE_DEPENDENCIES
 
-        # check if the ASR service is available
-        if self.wait_for_asr_service() is False:
+        needs_asr_service = not self.UNIT_TESTING
+        if needs_asr_service and not self.wait_for_asr_service():
             self.logger.error(
                 "Error: after 100 attempts the ASR service is still not ready! Stopping worker"
             )
@@ -104,8 +119,8 @@ class asr_worker(DANE.base_classes.base_worker):
             self.__binding_key,
             config,
             self.__depends_on,
-            True,  # auto_connect
-            False,  # no_api
+            auto_connect=not self.UNIT_TESTING,
+            no_api=self.UNIT_TESTING,
         )
 
     def __get_downloader_type(self):
@@ -505,7 +520,7 @@ class asr_worker(DANE.base_classes.base_worker):
 
 # Start the worker
 if __name__ == "__main__":
-    w = asr_worker(cfg)
+    w = AsrWorker(cfg)
     try:
         w.run()
     except (KeyboardInterrupt, SystemExit):

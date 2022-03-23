@@ -1,0 +1,44 @@
+# Important for understanding DANE configs: https://github.com/CLARIAH/DANE/blob/main/DANE/config.py
+#   FIRST the home dir config is applied (~/.DANE/config.yml),
+#   THEN the base_config.yml will overwrite anything,
+#   THEN the local config.yml
+#
+# Therefore, we use:
+# - For local testing: a local config.yml (copy based on this file)
+# - In k8s mode: create a k8s ConfigMap (--from-file config.yml) and mount it in ~/.DANE/config.yml
+#
+# Note: it does not seem possible to mount a ConfigMap in the root dir of the worker, so
+#       base_config.yml and config.yml are in .dockerignore (so they cannot overwrite ~/.DANE/config.yml)
+#
+# Note: For local testing, copy this file to config.yml (in main dir of this repo)
+RABBITMQ: # common settings for each DANE worker to connect to DANE-server RabbitMQ server
+    HOST: 'localhost' # when testing
+    PORT: 5672  # RMQ default
+    EXCHANGE: 'DANE-exchange' # DANE-server default
+    RESPONSE_QUEUE: 'DANE-response-queue' # DANE-server default
+    USER: 'guest' # RMQ default
+    PASSWORD: 'guest' # RMQ default
+ELASTICSEARCH: # common settings for each DANE worker to connect to DANE-server Elasticsearch cluster
+    HOST: ['localhost'] # define k8s Endpoint with this name to connect external ES cluster
+    PORT: 9200 # ES default
+    USER: '' # ES default
+    PASSWORD: '' # ES default
+    SCHEME: 'http' # connection protocol for ELASTICSEARCH.HOST
+    INDEX: 'dane-index-ENVIRONMENT-NAME' # suggestion: use a simple prefix followed by environment name
+LOGGING: # used in base_util.py
+    LEVEL: 'DEBUG' # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    DIR: 'logs' # directory relative from worker.py
+PATHS: # common settings for each DANE worker to define input/output dirs (with a common mount point)
+    TEMP_FOLDER: "./mount" # directory is automatically created (use ./mount for local testing)
+    OUT_FOLDER: "./mount" # directory is automatically created (use ./mount for local testing)
+ASR_API: # settings specific for this worker
+    HOST: 'localhost' #'dane-asr-api.default.svc.cluster.local'
+    PORT: 3023 # target port 3023, but mapped to 80 by k8s service
+    SIMULATE: false
+    WAIT_FOR_COMPLETION: true
+FILE_SYSTEM:
+    BASE_MOUNT: 'mount' #'mount' when running locally
+    INPUT_DIR: 'input-files'
+    OUTPUT_DIR: 'output-files/asr-output'
+DANE_DEPENDENCIES: ['BG_DOWNLOAD'] # this param is optional, will be defaulted to [] if absent
+DELETE_INPUT_ON_COMPLETION: False # this param is optional, will be defaulted to False if absent

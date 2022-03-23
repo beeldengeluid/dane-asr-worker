@@ -1,0 +1,93 @@
+import json
+
+from DANE import Document, Result, Task
+import pytest
+
+from tests.unit.output_cases import asr_output_cases
+import worker
+
+DUMMY_FILE_PATH = "path/to/download/file.mp3"
+DUMMY_DANE_DIRS = {
+    "TEMP_FOLDER": "/mnt/dane-fs/input-dir",
+    "OUT_FOLDER": "/mnt/dane-fs/output-dir",
+}
+DUMMY_DOC = Document.from_json(
+    json.dumps(
+        {
+            "target": {
+                "id": "dummy_id_12345",
+                "url": "http://dummy-url.com/dummy.mp3",
+                "type": "Video",
+            },
+            "creator": {"id": "UNIT TEST", "type": "Organization"},
+            "_id": "dummy-uuid-12345-43214",
+        }
+    )
+)
+DUMMY_TASK = Task.from_json(
+    {"key": "ASR", "state": 201, "msg": "Queued", "priority": 1}
+)
+DUMMY_RESULT = Result.from_json(
+    json.dumps(
+        {
+            "generator": {
+                "id": "dummy-id-12345",
+                "type": "Software",
+                "name": "ASR",
+                "homepage": "git@github.com:beeldengeluid/dane-asr-worker.git",
+            },
+            "payload": {"TODO": "TODO"},
+        }
+    )
+)
+
+
+@pytest.fixture(scope="module")
+def asr_worker(config) -> worker.AsrWorker:
+    return worker.AsrWorker(config)
+
+
+"""----------------------------------ID MANAGEMENT FUNCTIONS ---------------------------------"""
+
+
+@pytest.mark.parametrize(
+    "input_file, asset_id",
+    [
+        ("/path/to/download/file.mp3", "file"),
+        ("/path/with/extra//file.mp3", "file"),
+        ("~/relative/path/file.mp3", "file"),
+        (
+            "/path/to/download/file.with.many.extensions.mp3",
+            "file.with.many.extensions",
+        ),
+    ],
+)
+def test_get_asset_id(asr_worker, input_file, asset_id):
+    assert asr_worker.get_asset_id(input_file) == asset_id
+
+
+@pytest.mark.parametrize(
+    "s, hash",
+    [
+        ("file.mp3", "906442a8f0c659227e6af143de05511545cbe0fd28385275ff0e4983"),
+    ],
+)
+def test_hash_string(asr_worker, s, hash):
+    assert asr_worker.hash_string(s) == hash
+
+
+"""----------------------------------PROCESS ASR OUTPUT (DOCKER MOUNT) --------------------------"""
+
+
+@pytest.mark.parametrize(
+    "output_dir, expected_results",
+    [
+        (
+            case.output_dir,
+            case.expected_results,
+        )
+        for case in asr_output_cases
+    ],
+)
+def test_asr_output_to_transcript(asr_worker, output_dir, expected_results):
+    assert asr_worker.asr_output_to_transcript(output_dir) == expected_results

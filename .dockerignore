@@ -1,4 +1,4 @@
-config-k8s.yml
+config_k8s.yml
 config.yml
 .gitignore
 README.md
@@ -8,3 +8,6 @@ scripts
 tests
 mount
 logs
+.mypy_cache
+.pytest_cache
+.coverage

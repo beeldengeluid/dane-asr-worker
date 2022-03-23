@@ -9,3 +9,6 @@ scripts/assign_task.py
 scripts/make_docs.py
 scripts/radio-oranje-batch.json
 .coverage
+__pycache__
+.pytest_cache
+.mypy_cache
