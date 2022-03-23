@@ -8,3 +8,6 @@ scripts
 tests
 mount
 logs
+.mypy_cache
+.pytest_cache
+.coverage

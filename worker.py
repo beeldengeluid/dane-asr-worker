@@ -96,7 +96,8 @@ class AsrWorker(DANE.base_classes.base_worker):
         # check if the file system is setup properly
         if not self.validate_data_dirs(self.ASR_INPUT_DIR, self.ASR_OUTPUT_DIR):
             self.logger.debug("ERROR: data dirs not configured properly")
-            quit()
+            if not self.UNIT_TESTING:
+                quit()
 
         # we specify a queue name because every worker of this type should
         # listen to the same queue
