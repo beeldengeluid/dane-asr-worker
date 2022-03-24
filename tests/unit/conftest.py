@@ -1,10 +1,11 @@
 import os
 
 import pytest
+from yacs.config import CfgNode
 
 
 @pytest.fixture(scope="session")
-def config():
+def config() -> CfgNode:
     from DANE.config import cfg
 
     return cfg
