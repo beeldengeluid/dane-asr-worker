@@ -508,8 +508,7 @@ class AsrWorker(DANE.base_classes.base_worker):
             fragid = carrier_fragid[1]
 
             # extract the starttime
-            sTime = parts[1].split(" ")[1].replace(")", "")
-            sTime = sTime.split(".")
+            sTime = parts[1].split(" ")[1].replace(")", "").split(".")
             starttime = int(sTime[0]) * 1000
 
             subtitle: ParsedResult = {
