@@ -88,9 +88,7 @@ def validate_config(config: CfgNode, validate_file_paths: bool = True) -> bool:
             config.FILE_SYSTEM.OUTPUT_DIR, str
         ), "FILE_SYSTEM.OUTPUT_DIR"
 
-        assert __check_setting(config.DANE_DEPENDENCIES, list), "DANE_DEPENDENCIES"
-        for dep in config.DANE_DEPENDENCIES:
-            assert type(dep) == str, "Invalid DANE_DEPENDENCIES"
+        assert __check_dane_dependencies(config.DANE_DEPENDENCIES), "DANE_DEPENDENCIES"
 
         assert __check_setting(
             config.DELETE_INPUT_ON_COMPLETION, bool
@@ -135,6 +133,12 @@ def __check_setting(setting: Any, t: type, optional=False) -> bool:
     return (type(setting) == t and optional is False) or (
         optional and (setting is None or type(setting) == t)
     )
+
+
+def __check_dane_dependencies(deps: Any) -> bool:
+    deps_to_check: list = deps if type(deps) == list else []
+    deps_allowed = ["DOWNLOAD", "BG_DOWNLOAD"]
+    return any(dep in deps_allowed for dep in deps_to_check)
 
 
 def __check_log_level(level: str) -> bool:
