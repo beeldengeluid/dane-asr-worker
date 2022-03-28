@@ -1,3 +1,6 @@
+from typing import Any
+from yacs.config import CfgNode
+
 import os
 from pathlib import Path
 import logging
@@ -13,7 +16,7 @@ Important note on how DANE builds up it's config (which is supplied to validate_
 """
 
 
-def validate_config(config, validate_file_paths=True):
+def validate_config(config: CfgNode, validate_file_paths: bool = True) -> bool:
     try:
         __validate_environment_variables()
     except AssertionError as e:
@@ -85,9 +88,7 @@ def validate_config(config, validate_file_paths=True):
             config.FILE_SYSTEM.OUTPUT_DIR, str
         ), "FILE_SYSTEM.OUTPUT_DIR"
 
-        assert __check_setting(config.DANE_DEPENDENCIES, list), "DANE_DEPENDENCIES"
-        for dep in config.DANE_DEPENDENCIES:
-            assert type(dep) == str, "Invalid DANE_DEPENDENCIES"
+        assert __check_dane_dependencies(config.DANE_DEPENDENCIES), "DANE_DEPENDENCIES"
 
         assert __check_setting(
             config.DELETE_INPUT_ON_COMPLETION, bool
@@ -105,7 +106,7 @@ def validate_config(config, validate_file_paths=True):
     return True
 
 
-def __validate_environment_variables():
+def __validate_environment_variables() -> None:
     # self.UNIT_TESTING = os.getenv('DW_ASR_UNIT_TESTING', False)
     try:
         assert True  # TODO add secrets from the config.yml to the env
@@ -113,7 +114,7 @@ def __validate_environment_variables():
         raise (e)
 
 
-def __validate_dane_paths(dane_temp_folder: str, dane_out_folder: str):
+def __validate_dane_paths(dane_temp_folder: str, dane_out_folder: str) -> None:
     i_dir = Path(dane_temp_folder)
     o_dir = Path(dane_out_folder)
 
@@ -128,17 +129,23 @@ def __validate_dane_paths(dane_temp_folder: str, dane_out_folder: str):
         raise (e)
 
 
-def __check_setting(setting, t, optional=False):
+def __check_setting(setting: Any, t: type, optional=False) -> bool:
     return (type(setting) == t and optional is False) or (
         optional and (setting is None or type(setting) == t)
     )
+
+
+def __check_dane_dependencies(deps: Any) -> bool:
+    deps_to_check: list = deps if type(deps) == list else []
+    deps_allowed = ["DOWNLOAD", "BG_DOWNLOAD"]
+    return any(dep in deps_allowed for dep in deps_to_check)
 
 
 def __check_log_level(level: str) -> bool:
     return level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
-def __validate_parent_dirs(paths: list):
+def __validate_parent_dirs(paths: list) -> None:
     try:
         for p in paths:
             assert os.path.exists(
@@ -148,7 +155,7 @@ def __validate_parent_dirs(paths: list):
         raise (e)
 
 
-def init_logger(config):
+def init_logger(config: CfgNode) -> logging.Logger:
     logger = logging.getLogger("DANE-DOWNLOAD")
     logger.setLevel(config.LOGGING.LEVEL)
     # create file handler which logs to file

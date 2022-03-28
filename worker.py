@@ -1,8 +1,9 @@
-from typing import List, TypedDict
+from codecs import StreamReaderWriter
+from typing import Any, List, Literal, TypedDict
 
 import DANE.base_classes
 from DANE.config import cfg
-from DANE import Result
+from DANE import Document, Task, Result
 
 import os
 import codecs
@@ -40,6 +41,16 @@ Instead we put the ASR in:
 
 
 # types
+
+
+class AsrResult(TypedDict):
+    state: int
+    message: str
+
+
+class CallbackResponse(TypedDict):
+    state: int
+    message: str
 
 
 class ParsedResult(TypedDict):
@@ -123,7 +134,7 @@ class AsrWorker(DANE.base_classes.base_worker):
             no_api=self.UNIT_TESTING,
         )
 
-    def __get_downloader_type(self):
+    def __get_downloader_type(self) -> Literal["DOWNLOAD", "BG_DOWNLOAD"] | None:
         self.logger.debug("determining downloader type")
         if "DOWNLOAD" in self.DANE_DEPENDENCIES:
             return "DOWNLOAD"
@@ -135,7 +146,7 @@ class AsrWorker(DANE.base_classes.base_worker):
         return None
 
     # make sure the service is ready before letting the server know that this worker is ready
-    def wait_for_asr_service(self, attempts=0):
+    def wait_for_asr_service(self, attempts: int = 0) -> bool:
         url = "http://{}:{}/ping".format(self.ASR_API_HOST, self.ASR_API_PORT)
         resp = requests.get(url)
         self.logger.info(resp.status_code)
@@ -149,7 +160,7 @@ class AsrWorker(DANE.base_classes.base_worker):
 
     """----------------------------------INIT VALIDATION FUNCTIONS ---------------------------------"""
 
-    def validate_data_dirs(self, asr_input_dir: str, asr_output_dir: str):
+    def validate_data_dirs(self, asr_input_dir: str, asr_output_dir: str) -> bool:
         i_dir = Path(asr_input_dir)
         o_dir = Path(asr_output_dir)
 
@@ -179,7 +190,7 @@ class AsrWorker(DANE.base_classes.base_worker):
     """----------------------------------INTERACTION WITH DANE SERVER ---------------------------------"""
 
     # DANE callback function, called whenever there is a job for this worker
-    def callback(self, task, doc):
+    def callback(self, task: Task, doc: Document) -> CallbackResponse:
         self.logger.debug("receiving a task from the DANE (mock) server!")
         self.logger.debug(task)
         self.logger.debug(doc)
@@ -238,7 +249,7 @@ class AsrWorker(DANE.base_classes.base_worker):
         # something went wrong inside the ASR service, return that response here
         return asr_result
 
-    def cleanup_input_file(self, input_file, actually_delete):
+    def cleanup_input_file(self, input_file: str, actually_delete: bool) -> bool:
         self.logger.debug(f"Verifying deletion of input file: {input_file}")
         if actually_delete is False:
             return True
@@ -275,7 +286,9 @@ class AsrWorker(DANE.base_classes.base_worker):
 
     # Note: the supplied transcript is EXACTLY the same as what we use in layer__asr in the collection indices,
     # meaning it should be quite trivial to append the DANE output into a collection
-    def save_to_dane_index(self, task, transcript, asr_output_dir):
+    def save_to_dane_index(
+        self, task: Task, transcript: List[ParsedResult], asr_output_dir: str
+    ) -> None:
         self.logger.debug("saving results to DANE, task id={0}".format(task._id))
         # TODO figure out the multiple lines per transcript (refresh my memory)
         r = Result(
@@ -288,7 +301,7 @@ class AsrWorker(DANE.base_classes.base_worker):
     """----------------------------------ID MANAGEMENT FUNCTIONS ---------------------------------"""
 
     # the file name without extension is used as an asset ID by the ASR container to save the results
-    def get_asset_id(self, input_file):
+    def get_asset_id(self, input_file: str) -> str:
         # grab the file_name from the path
         file_name = ntpath.basename(input_file)
 
@@ -297,10 +310,10 @@ class AsrWorker(DANE.base_classes.base_worker):
         self.logger.debug("working with this asset ID {}".format(asset_id))
         return asset_id
 
-    def get_asr_output_dir(self, asset_id):
+    def get_asr_output_dir(self, asset_id: str) -> str:
         return os.path.join(self.ASR_OUTPUT_DIR, asset_id)
 
-    def hash_string(self, s):
+    def hash_string(self, s: str) -> str:
         return hashlib.sha224("{0}".format(s).encode("utf-8")).hexdigest()
 
     """----------------------------------DOWNLOAD FUNCTIONS ---------------------------------"""
@@ -326,7 +339,7 @@ class AsrWorker(DANE.base_classes.base_worker):
                 file.close()
         return fn
 
-    def fetch_downloaded_content(self, doc):
+    def fetch_downloaded_content(self, doc: Document) -> Any | None:
         self.logger.debug("checking download worker output")
         downloader_type = self.__get_downloader_type()
         if not downloader_type:
@@ -345,7 +358,7 @@ class AsrWorker(DANE.base_classes.base_worker):
 
     """----------------------------------INTERACT WITH ASR SERVIVCE (DOCKER CONTAINER) --------------------------"""
 
-    def submit_asr_job(self, input_file, input_hash):
+    def submit_asr_job(self, input_file: str, input_hash: str) -> AsrResult:
         self.logger.debug(
             "Going to submit {} to the ASR service, using PID={}".format(
                 input_file, input_hash
@@ -435,7 +448,9 @@ class AsrWorker(DANE.base_classes.base_worker):
     """----------------------------------PROCESS ASR OUTPUT (DOCKER MOUNT) --------------------------"""
 
     # mount/asr-output/1272-128104-0000
-    def asr_output_to_transcript(self, asr_output_dir):
+    def asr_output_to_transcript(
+        self, asr_output_dir: str
+    ) -> List[ParsedResult] | None:
         self.logger.debug(
             "generating a transcript from the ASR output in: {0}".format(asr_output_dir)
         )
@@ -445,12 +460,12 @@ class AsrWorker(DANE.base_classes.base_worker):
                 with codecs.open(
                     os.path.join(asr_output_dir, "1Best.ctm"), encoding="utf-8"
                 ) as times_file:
-                    times = self.__extractTimeInfo(times_file)
+                    times = self.__extract_time_info(times_file)
 
                 with codecs.open(
                     os.path.join(asr_output_dir, "1Best.txt"), encoding="utf-8"
                 ) as asr_file:
-                    transcriptions = self.__parseASRResults(asr_file, times)
+                    transcriptions = self.__parse_asr_results(asr_file, times)
             except EnvironmentError as e:  # OSError or IOError...
                 self.logger.debug(os.strerror(e.errno))
 
@@ -464,7 +479,9 @@ class AsrWorker(DANE.base_classes.base_worker):
 
         return transcriptions
 
-    def __parseASRResults(self, asr_file, times):
+    def __parse_asr_results(
+        self, asr_file: StreamReaderWriter, times: List[int]
+    ) -> List[ParsedResult]:
         transcriptions = []
         i = 0
         cur_pos = 0
@@ -491,11 +508,10 @@ class AsrWorker(DANE.base_classes.base_worker):
             fragid = carrier_fragid[1]
 
             # extract the starttime
-            sTime = parts[1].split(" ")[1].replace(")", "")
-            sTime = sTime.split(".")
+            sTime = parts[1].split(" ")[1].replace(")", "").split(".")
             starttime = int(sTime[0]) * 1000
 
-            subtitle = {
+            subtitle: ParsedResult = {
                 "words": words,
                 "wordTimes": word_times,
                 "start": float(starttime),
@@ -507,7 +523,7 @@ class AsrWorker(DANE.base_classes.base_worker):
             i += 1
         return transcriptions
 
-    def __extractTimeInfo(self, times_file):
+    def __extract_time_info(self, times_file: StreamReaderWriter) -> List[int]:
         times = []
 
         for line in times_file:
