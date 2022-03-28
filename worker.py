@@ -49,8 +49,8 @@ class AsrResult(TypedDict):
 
 
 class CallbackResponse(TypedDict):
-    message: str
     state: int
+    message: str
 
 
 class ParsedResult(TypedDict):
@@ -460,12 +460,12 @@ class AsrWorker(DANE.base_classes.base_worker):
                 with codecs.open(
                     os.path.join(asr_output_dir, "1Best.ctm"), encoding="utf-8"
                 ) as times_file:
-                    times = self.__extractTimeInfo(times_file)
+                    times = self.__extract_time_info(times_file)
 
                 with codecs.open(
                     os.path.join(asr_output_dir, "1Best.txt"), encoding="utf-8"
                 ) as asr_file:
-                    transcriptions = self.__parseASRResults(asr_file, times)
+                    transcriptions = self.__parse_asr_results(asr_file, times)
             except EnvironmentError as e:  # OSError or IOError...
                 self.logger.debug(os.strerror(e.errno))
 
@@ -479,7 +479,7 @@ class AsrWorker(DANE.base_classes.base_worker):
 
         return transcriptions
 
-    def __parseASRResults(
+    def __parse_asr_results(
         self, asr_file: StreamReaderWriter, times: List[int]
     ) -> List[ParsedResult]:
         transcriptions = []
@@ -523,7 +523,7 @@ class AsrWorker(DANE.base_classes.base_worker):
             i += 1
         return transcriptions
 
-    def __extractTimeInfo(self, times_file: StreamReaderWriter) -> List[int]:
+    def __extract_time_info(self, times_file: StreamReaderWriter) -> List[int]:
         times = []
 
         for line in times_file:
