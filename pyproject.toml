@@ -8,7 +8,7 @@ authors = ["Jaap Blom <jblom@beeldengeluid.nl>", "Govert Brinkmann <gbrinkmann@b
 python = "^3.10"
 DANE = "^0.3.0"
 requests = "^2.27.1"
-pika = "^1.2.0"
+pika = "^1.2.1"
 yacs = "^0.1.8"
 elasticsearch = "7.17.3"
 
