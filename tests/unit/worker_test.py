@@ -1,6 +1,6 @@
 import json
 
-from DANE import Document, Result, Task
+from dane import Document, Result, Task
 import pytest
 
 from tests.unit.output_cases import asr_output_cases

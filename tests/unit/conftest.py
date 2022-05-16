@@ -6,7 +6,7 @@ from yacs.config import CfgNode
 
 @pytest.fixture(scope="session")
 def config() -> CfgNode:
-    from DANE.config import cfg
+    from dane.config import cfg
 
     return cfg
 

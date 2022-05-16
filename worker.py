@@ -1,10 +1,5 @@
 from codecs import StreamReaderWriter
 from typing import Any, List, Literal, TypedDict
-
-import DANE.base_classes
-from DANE.config import cfg
-from DANE import Document, Task, Result
-
 import os
 import codecs
 import ntpath
@@ -14,6 +9,9 @@ import requests
 from urllib.parse import urlparse
 from time import sleep
 import hashlib
+from dane.base_classes import base_worker
+from dane.config import cfg
+from dane import Document, Task, Result
 from base_util import init_logger, validate_config
 
 # from work_processor import process_input_file
@@ -62,7 +60,7 @@ class ParsedResult(TypedDict):
     carrierId: str
 
 
-class AsrWorker(DANE.base_classes.base_worker):
+class AsrWorker(base_worker):
     def __init__(self, config):
         self.logger = init_logger(config)
         self.logger.debug(config)

@@ -1,8 +1,9 @@
 import pika
 import uuid
 import json
-import DANE
-from DANE.config import cfg
+from dane import Document, Task
+from dane.config import cfg
+
 
 config = cfg.RABBITMQ
 ROUTING_KEY = "#.ASR"
@@ -26,8 +27,8 @@ def simulate_dane_request():
 
     print("got a connection, now going to construct a DANE task")
 
-    task = DANE.Task("ASR")
-    document = DANE.Document(
+    task = Task("ASR")
+    document = Document(
         {
             "id": "oai:openimages.eu:29452",
             "url": "https://www.openbeelden.nl/files/29/29494.29451.WEEKNUMMER243-HRE00015742.mp4",

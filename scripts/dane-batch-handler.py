@@ -3,7 +3,7 @@ import yaml
 import elasticsearch
 import elasticsearch.helpers
 import requests
-import DANE
+from dane import Document
 from time import sleep
 
 
@@ -63,7 +63,7 @@ class DANEBatchHandler:
                 print(source_url)
                 docs.append(
                     json.loads(
-                        DANE.Document(
+                        Document(
                             {
                                 "id": hit[
                                     "_id"
