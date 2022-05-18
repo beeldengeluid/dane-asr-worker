@@ -11,7 +11,7 @@ requests = "^2.27.1"
 pika = "^1.2.0"
 yacs = "^0.1.8"
 elasticsearch = "7.17.3"
-types-requests = "2.27.25"
+types-requests = "2.27.26"
 dane = "0.3.2"
 
 [tool.poetry.dev-dependencies]
