@@ -1,5 +1,6 @@
 # Important for understanding DANE configs: https://github.com/CLARIAH/DANE/blob/main/DANE/config.py
-#   FIRST the home dir config is applied (~/.DANE/config.yml),
+#   FIRST the config in the python module dane.cfg.cfg is used
+#   THEN the home dir config is applied (~/.DANE/config.yml),
 #   THEN the base_config.yml will overwrite anything,
 #   THEN the local config.yml
 #
