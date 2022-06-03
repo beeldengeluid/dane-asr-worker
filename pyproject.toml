@@ -12,6 +12,7 @@ pika = "^1.2.0"
 yacs = "^0.1.8"
 elasticsearch = "7.17.4"
 dane = "0.3.2"
+elasticsearch7 = "7.17.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.2"
