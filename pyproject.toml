@@ -10,7 +10,7 @@ DANE = "^0.3.0"
 requests = "^2.27.1"
 pika = "^1.2.0"
 yacs = "^0.1.8"
-elasticsearch = "7.17.3"
+elasticsearch = "7.17.4"
 dane = "0.3.2"
 
 [tool.poetry.dev-dependencies]
