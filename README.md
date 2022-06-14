@@ -1,3 +1,4 @@
+[![Pre-Commit](https://github.com/beeldengeluid/dane-asr-worker/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/beeldengeluid/dane-asr-worker/actions/workflows/pre-commit.yml)  [![Deploy to Amazon ECR](https://github.com/beeldengeluid/dane-asr-worker/actions/workflows/aws-ecr.yml/badge.svg)](https://github.com/beeldengeluid/dane-asr-worker/actions/workflows/aws-ecr.yml)
 # dane-asr-worker
 
 DANE worker for processing ASR (optimised for Dutch)
