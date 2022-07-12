@@ -45,13 +45,11 @@ omit = [
 
 [tool.mypy]
 python_version = "3.10"
+check_untyped_defs = true
 
 [[tool.mypy.overrides]]
 module = [
-  'dane.*',
-  'mockito',
-  'pika',
-  'yaml',
-  'yacs.*',
+  "dane.*",
+  "yacs.*",
 ]
 ignore_missing_imports = true
