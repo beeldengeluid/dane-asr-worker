@@ -9,14 +9,14 @@ poetry shell
 
 cd ../
 
-# run tests (configured in pyproject.toml)
-pytest
+# run tests
+pytest -c 'pyproject.toml'
 
-# check lint rules (configured in .flake8)
-flake8
+# check lint rules
+flake8 --config '.flake8'
 
-# check formatting (configured in pyproject.toml)
-black --check .
+# check formatting
+black --config 'pyproject.toml' --check .
 
-# check type annotations (configured in pyproject.toml)
-mypy .
+# check type annotations
+mypy --config-file 'pyproject.toml' .
