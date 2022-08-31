@@ -16,6 +16,8 @@ from base_util import init_logger, validate_config
 
 # from work_processor import process_input_file
 
+from prometheus_client import start_http_server, Counter
+
 """
 This class implements a DANE worker and thus serves as the process receiving tasks from DANE
 
@@ -36,6 +38,10 @@ Instead we put the ASR in:
 
 - /mnt/dane-fs/output-files/asr-output/{asset-id}
 """
+
+# Metric to track hours of content downloaded
+DOWNLOADED_HOURS = Counter("content_downloaded_hours", "Hours of material downloaded")
+DOWNLOADED_BYTES = Counter("content_downloaded_bytes", "Bytes of material downloaded")
 
 
 # types
@@ -214,6 +220,11 @@ class AsrWorker(base_worker):
                     "message": "Could not download the document content",
                 }
 
+        # get some stats on the download_data
+        download_data = {
+            "content_length": os.path.getsize(input_file)
+        }
+
         # step 2 create hash of input file to use for progress tracking
         input_hash = self.hash_string(input_file)
 
@@ -229,6 +240,10 @@ class AsrWorker(base_worker):
             if transcript:
                 if self.cleanup_input_file(input_file, self.DELETE_INPUT_ON_COMPLETION):
                     self.save_to_dane_index(task, transcript, asr_output_dir)
+                    if "content_length" in download_data:
+                        DOWNLOADED_BYTES.inc(download_data["content_length"])
+                    if task.args.get("metadata", {}).get("duration_sec") is not None:
+                        DOWNLOADED_HOURS.inc(int(task.args["metadata"]["duration_sec"]))
                     return {
                         "state": 200,
                         "message": "Successfully generated a transcript file from the ASR service output",
@@ -536,6 +551,7 @@ class AsrWorker(base_worker):
 if __name__ == "__main__":
     w = AsrWorker(cfg)
     try:
+        start_http_server(8000)
         w.run()
     except (KeyboardInterrupt, SystemExit):
         w.stop()
