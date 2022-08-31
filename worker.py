@@ -249,11 +249,13 @@ class AsrWorker(base_worker):
                         "message": "Successfully generated a transcript file from the ASR service output",
                     }
                 else:
+                    self.logger.error("Generated a transciprt, but could not delete the input file")
                     return {
                         "state": 500,
                         "message": "Generated a transcript, but could not delete the input file",
                     }
             else:
+                self.logger.error("Failed to generate a transcript file from the ASR service output")
                 return {
                     "state": 500,
                     "message": "Failed to generate a transcript file from the ASR service output",
