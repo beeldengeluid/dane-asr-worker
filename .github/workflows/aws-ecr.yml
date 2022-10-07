@@ -2,6 +2,12 @@ on:
   push:
     branches:
       - "main"
+      - "master"
+    paths-ignore:
+      - ./*.yml
+      - README.md
+      - LICENSE
+      - codemeta.json
 
 name: Deploy to Amazon ECR
 
@@ -32,11 +38,10 @@ jobs:
     - name: Get short SHA
       id: sha
       run: echo "::set-output name=sha7::$(echo ${GITHUB_SHA} | cut -c1-7)"
-        
-    - name: Build and Push to ECR public
-      id: build-and-push
-      uses: pahud/ecr-public-action@8cd826db40befb59b0cd0b60b22a7ba72d06a7f7
-      with:
-        tags: |
-          public.ecr.aws/beng/${{ steps.repoName.outputs.reponame }}:latest
-          public.ecr.aws/beng/${{ steps.repoName.outputs.reponame }}:${{ steps.sha.outputs.sha7 }}
+
+    - name: Build, tag, and push image to private Amazon ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      run: |
+        docker build -t $ECR_REGISTRY/${{ steps.repoName.outputs.reponame }}:${{ steps.sha.outputs.sha7 }} -t $ECR_REGISTRY/${{ steps.repoName.outputs.reponame }}:latest .
+        docker push $ECR_REGISTRY/${{ steps.repoName.outputs.reponame }} --all-tags
