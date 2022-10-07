@@ -189,6 +189,7 @@ class AsrWorker(base_worker):
 
     # DANE callback function, called whenever there is a job for this worker
     def callback(self, task: Task, doc: Document) -> CallbackResponse:
+        # TODO start_time = perf_counter()
         self.logger.debug("receiving a task from the DANE (mock) server!")
         self.logger.debug(task)
         self.logger.debug(doc)
@@ -228,7 +229,7 @@ class AsrWorker(base_worker):
             transcript = self.asr_output_to_transcript(asr_output_dir)
             if transcript:
                 if self.cleanup_input_file(input_file, self.DELETE_INPUT_ON_COMPLETION):
-                    self.save_to_dane_index(task, transcript, asr_output_dir)
+                    self.save_to_dane_index(doc, task, transcript, asr_output_dir)
                     return {
                         "state": 200,
                         "message": "Successfully generated a transcript file from the ASR service output",
@@ -285,13 +286,23 @@ class AsrWorker(base_worker):
     # Note: the supplied transcript is EXACTLY the same as what we use in layer__asr in the collection indices,
     # meaning it should be quite trivial to append the DANE output into a collection
     def save_to_dane_index(
-        self, task: Task, transcript: List[ParsedResult], asr_output_dir: str
+        self,
+        doc: Document,
+        task: Task,
+        transcript: List[ParsedResult],
+        asr_output_dir: str,
     ) -> None:
         self.logger.debug("saving results to DANE, task id={0}".format(task._id))
         # TODO figure out the multiple lines per transcript (refresh my memory)
         r = Result(
             self.generator,
-            payload={"transcript": transcript, "asr_output_dir": asr_output_dir},
+            payload={
+                "transcript": transcript,
+                "asr_output_dir": asr_output_dir,
+                "doc_id": doc._id,
+                "doc_target_id": doc.target["id"],
+                "doc_target_url": doc.target["url"],
+            },
             api=self.handler,
         )
         r.save(task._id)
@@ -347,7 +358,7 @@ class AsrWorker(base_worker):
             possibles = self.handler.searchResult(doc._id, downloader_type)
             self.logger.debug(possibles)
             return possibles[0].payload[
-                "file_path"
+                "file_path"  # TODO fetch download worker (time) provenance (duration + time to download)
             ]  # both used in BG_DOWNLOAD and DOWNLOAD DANE.Result
         except KeyError as e:
             self.logger.exception(e)
@@ -398,6 +409,7 @@ class AsrWorker(base_worker):
         # else start polling the ASR service, using the input_hash for reference (TODO synch with asset_id)
         self.logger.debug("Polling the ASR service to check when it is finished")
         while True:
+            self.logger.debug("Polling the ASR service to wait for completion")
             resp = requests.get(
                 "http://{0}:{1}/api/{2}/{3}".format(
                     self.ASR_API_HOST,
@@ -433,8 +445,8 @@ class AsrWorker(base_worker):
                     ),
                 }
 
-            # wait for one second before polling again
-            sleep(1)
+            # wait for ten seconds before polling again
+            sleep(10)
 
         return {
             "state": 500,

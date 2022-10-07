@@ -156,14 +156,14 @@ def __validate_parent_dirs(paths: list) -> None:
 
 
 def init_logger(config: CfgNode) -> logging.Logger:
-    logger = logging.getLogger("DANE-DOWNLOAD")
+    logger = logging.getLogger("DANE-ASR-WORKER")
     logger.setLevel(config.LOGGING.LEVEL)
     # create file handler which logs to file
     if not os.path.exists(os.path.realpath(config.LOGGING.DIR)):
         os.makedirs(os.path.realpath(config.LOGGING.DIR), exist_ok=True)
 
     fh = TimedRotatingFileHandler(
-        os.path.join(os.path.realpath(config.LOGGING.DIR), "DANE-download-worker.log"),
+        os.path.join(os.path.realpath(config.LOGGING.DIR), "dane-asr-worker.log"),
         when="W6",  # start new log on sunday
         backupCount=3,
     )
