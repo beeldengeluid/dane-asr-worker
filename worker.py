@@ -7,7 +7,7 @@ from pathlib import Path
 import json
 import requests
 from urllib.parse import urlparse
-from time import sleep
+from time import sleep, perf_counter
 import hashlib
 from dane.base_classes import base_worker
 from dane.config import cfg
@@ -44,6 +44,7 @@ Instead we put the ASR in:
 class AsrResult(TypedDict):
     state: int
     message: str
+    processing_time: float
 
 
 class CallbackResponse(TypedDict):
@@ -291,6 +292,7 @@ class AsrWorker(base_worker):
         task: Task,
         transcript: List[ParsedResult],
         asr_output_dir: str,
+        provenance: dict = None,
     ) -> None:
         self.logger.debug("saving results to DANE, task id={0}".format(task._id))
         # TODO figure out the multiple lines per transcript (refresh my memory)
@@ -373,6 +375,7 @@ class AsrWorker(base_worker):
                 input_file, input_hash
             )
         )
+        start_time = perf_counter()
         try:
             dane_asr_api_url = "http://{}:{}/api/{}/{}?input_file={}&wait_for_completion={}&simulate={}".format(
                 self.ASR_API_HOST,
@@ -387,24 +390,23 @@ class AsrWorker(base_worker):
             resp = requests.put(dane_asr_api_url)
         except requests.exceptions.ConnectionError as e:
             self.logger.error(e)
-            return {
-                "state": 500,
-                "message": "Failure: could not connect to the ASR service",
-            }
+            return self._generate_asr_response(
+                500, "Failure: could not connect to the ASR service", start_time
+            )
 
         # return the result right away if in synchronous mode
         if self.ASR_API_WAIT_FOR_COMPLETION:
             if resp.status_code == 200:
                 self.logger.debug("The ASR service is done, returning the results")
                 data = json.loads(resp.text)
-                return data
+                data["processing_time"] = perf_counter() - start_time
+                return data  # NOTE see dane-kaldi-nl-api for the returned data
             else:
                 self.logger.debug("error returned")
                 self.logger.debug(resp.text)
-                return {
-                    "state": 500,
-                    "message": "Failure: the ASR service returned an error",
-                }
+                return self._generate_asr_response(
+                    500, "Failure: the ASR service returned an error", start_time
+                )
 
         # else start polling the ASR service, using the input_hash for reference (TODO synch with asset_id)
         self.logger.debug("Polling the ASR service to check when it is finished")
@@ -424,35 +426,40 @@ class AsrWorker(base_worker):
             finished = process_msg["finished"] if "finished" in process_msg else False
 
             if finished:
-                return {
-                    "state": 200,
-                    "message": "The ASR service generated valid output {}".format(
-                        input_file
-                    ),
-                }
+                return self._generate_asr_response(
+                    200,
+                    f"The ASR service generated valid output {input_file}",
+                    start_time,
+                )
             elif state == 500:
-                return {
-                    "state": 500,
-                    "message": "The ASR failed to produce the required output {}".format(
-                        input_file
-                    ),
-                }
+                return self._generate_asr_response(
+                    500,
+                    f"The ASR failed to produce the desired output {input_file}",
+                    start_time,
+                )
             elif state == 404:
-                return {
-                    "state": 404,
-                    "message": "The ASR failed to find the required input {}".format(
-                        input_file
-                    ),
-                }
+                return self._generate_asr_response(
+                    404,
+                    f"The ASR failed to find the input file {input_file}",
+                    start_time,
+                )
 
             # wait for ten seconds before polling again
             sleep(10)
 
+        return self._generate_asr_response(
+            500,
+            f"The ASR failed to produce the desired output {input_file}",
+            start_time,
+        )
+
+    def _generate_asr_response(
+        self, state: int, msg: str, start_time: float
+    ) -> AsrResult:
         return {
-            "state": 500,
-            "message": "The ASR failed to produce the required output {}".format(
-                input_file
-            ),
+            "state": state,
+            "message": msg,
+            "processing_time": perf_counter() - start_time,
         }
 
     """----------------------------------PROCESS ASR OUTPUT (DOCKER MOUNT) --------------------------"""
