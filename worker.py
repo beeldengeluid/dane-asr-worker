@@ -46,6 +46,7 @@ class Provenance(TypedDict):
     dane_asr_worker_version: str  # version of this worker
     dane_asr_worker_git_url: str
 
+
 class AsrResult(TypedDict):
     state: int
     message: str
@@ -307,10 +308,10 @@ class AsrWorker(base_worker):
                 "transcript": transcript,
                 "asr_output_dir": asr_output_dir,
                 "doc_id": doc._id,
-                "task_id" : None,  # TODO add this as well
+                "task_id": None,  # TODO add this as well
                 "doc_target_id": doc.target["id"],
                 "doc_target_url": doc.target["url"],
-                "provenance" : provenance,  # TODO test this
+                "provenance": provenance,  # TODO test this
             },
             api=self.handler,
         )
