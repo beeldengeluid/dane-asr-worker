@@ -38,8 +38,13 @@ Instead we put the ASR in:
 """
 
 
-# types
-
+# TODO get version from Kaldi CLI
+class Provenance(TypedDict):
+    asr_processing_time: float  # retrieved via submit_asr_job()
+    kaldi_nl_version: str  # Kaldi-NL v0.4.1
+    kaldi_nl_git_url: str  # https://github.com/opensource-spraakherkenning-nl/Kaldi_NL
+    dane_asr_worker_version: str  # version of this worker
+    dane_asr_worker_git_url: str
 
 class AsrResult(TypedDict):
     state: int
@@ -292,7 +297,7 @@ class AsrWorker(base_worker):
         task: Task,
         transcript: List[ParsedResult],
         asr_output_dir: str,
-        provenance: dict = None,
+        provenance: Provenance = None,
     ) -> None:
         self.logger.debug("saving results to DANE, task id={0}".format(task._id))
         # TODO figure out the multiple lines per transcript (refresh my memory)
@@ -302,8 +307,10 @@ class AsrWorker(base_worker):
                 "transcript": transcript,
                 "asr_output_dir": asr_output_dir,
                 "doc_id": doc._id,
+                "task_id" : None,  # TODO add this as well
                 "doc_target_id": doc.target["id"],
                 "doc_target_url": doc.target["url"],
+                "provenance" : provenance,  # TODO test this
             },
             api=self.handler,
         )
