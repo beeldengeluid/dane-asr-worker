@@ -1,7 +1,0 @@
-# Important for understanding DANE configs: https://github.com/CLARIAH/DANE/blob/main/DANE/config.py
-# Note: FIRST the home dir config is applied,
-# THEN the base_config will overwrite anything,
-# THEN the local config.yml
-LOGGING:
-    LEVEL: 'DEBUG'
-    DIR: 'logs'

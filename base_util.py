@@ -1,10 +1,9 @@
-from typing import Any
+from typing import Any, List
 from yacs.config import CfgNode
-
+import subprocess
 import os
 from pathlib import Path
 import logging
-from logging.handlers import TimedRotatingFileHandler
 
 
 """
@@ -14,6 +13,7 @@ Important note on how DANE builds up it's config (which is supplied to validate_
     THEN the local base_config.yml will overwrite anything specified
     THEN the local config.yml will overwrite anything specified there
 """
+logger = logging.getLogger(__name__)
 
 
 def validate_config(config: CfgNode, validate_file_paths: bool = True) -> bool:
@@ -24,7 +24,7 @@ def validate_config(config: CfgNode, validate_file_paths: bool = True) -> bool:
         print(str(e))
         return False
 
-    parent_dirs_to_check = []  # parent dirs of file paths must exist
+    parent_dirs_to_check: List[str] = []  # parent dirs of file paths must exist
     # check the DANE.cfg (supplied by config.yml)
     try:
         # rabbitmq settings
@@ -55,13 +55,6 @@ def validate_config(config: CfgNode, validate_file_paths: bool = True) -> bool:
         ), "ELASTICSEARCH.PASSWORD"
         assert __check_setting(config.ELASTICSEARCH.SCHEME, str), "ELASTICSEARCH.SCHEME"
         assert __check_setting(config.ELASTICSEARCH.INDEX, str), "ELASTICSEARCH.INDEX"
-
-        # logging
-        assert config.LOGGING, "LOGGING"
-        assert __check_setting(config.LOGGING.LEVEL, str), "LOGGING.LEVEL"
-        assert __check_log_level(config.LOGGING.LEVEL), "Invalid LOGGING.LEVEL defined"
-        assert __check_setting(config.LOGGING.DIR, str), "LOGGING.DIR"
-        parent_dirs_to_check.append(config.LOGGING.DIR)
 
         # DANE python lib settings
         assert config.PATHS, "PATHS"
@@ -155,29 +148,21 @@ def __validate_parent_dirs(paths: list) -> None:
         raise (e)
 
 
-def init_logger(config: CfgNode) -> logging.Logger:
-    logger = logging.getLogger("DANE-ASR-WORKER")
-    logger.setLevel(config.LOGGING.LEVEL)
-    # create file handler which logs to file
-    if not os.path.exists(os.path.realpath(config.LOGGING.DIR)):
-        os.makedirs(os.path.realpath(config.LOGGING.DIR), exist_ok=True)
-
-    fh = TimedRotatingFileHandler(
-        os.path.join(os.path.realpath(config.LOGGING.DIR), "dane-asr-worker.log"),
-        when="W6",  # start new log on sunday
-        backupCount=3,
-    )
-    fh.setLevel(config.LOGGING.LEVEL)
-    # create console handler
-    ch = logging.StreamHandler()
-    ch.setLevel(config.LOGGING.LEVEL)
-    # create formatter and add it to the handlers
-    formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S"
-    )
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
-    # add the handlers to the logger
-    logger.addHandler(fh)
-    logger.addHandler(ch)
-    return logger
+# used by asr.py and transcode.py
+def run_shell_command(cmd: str) -> bool:
+    logger.info(cmd)
+    try:
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
+        )
+        stdout, stderr = process.communicate()
+        logger.debug(stdout)
+        logger.debug(stderr)
+        logger.debug(f"return code {process.returncode}")
+        return process.returncode == 0
+    except subprocess.CalledProcessError:
+        logger.exception("CalledProcessError")
+        return False
+    except Exception:
+        logger.exception("Exception")
+        return False

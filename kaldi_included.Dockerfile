@@ -10,10 +10,8 @@ RUN apt-get update
 RUN apt-get install -y \
     ffmpeg
 
-# RUN apt-get install -y python3 \
-#    python3-pip
-
 # build python 3.10 from source (since deadsnakes does not seem to work here...)
+# https://computingforgeeks.com/how-to-install-python-on-ubuntu-linux-system/
 RUN apt update
 RUN apt install -y build-essential \
     zlib1g-dev \

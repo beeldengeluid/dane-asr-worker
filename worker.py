@@ -6,6 +6,7 @@ import ntpath
 from pathlib import Path
 import json
 import requests
+import logging
 from urllib.parse import urlparse
 from time import sleep, time
 import hashlib
@@ -13,7 +14,7 @@ from dataclasses import dataclass
 from dane.base_classes import base_worker
 from dane.config import cfg
 from dane import Document, Task, Result
-from base_util import init_logger, validate_config
+from base_util import validate_config
 
 
 """
@@ -36,6 +37,7 @@ Instead we put the ASR in:
 
 - /mnt/dane-fs/output-files/asr-output/{asset-id}
 """
+logger = logging.getLogger(__name__)
 
 
 # TODO get version from Kaldi CLI
@@ -91,13 +93,12 @@ class ParsedResult(TypedDict):
 
 class AsrWorker(base_worker):
     def __init__(self, config):
-        self.logger = init_logger(config)
-        self.logger.debug(config)
+        logger.debug(config)
 
         self.UNIT_TESTING = os.getenv("DW_ASR_UNIT_TESTING", False)
 
         if not validate_config(config, not self.UNIT_TESTING):
-            self.logger.error("Invalid config, quitting")
+            logger.error("Invalid config, quitting")
             quit()
 
         # first make sure the config has everything we need
@@ -113,6 +114,16 @@ class AsrWorker(base_worker):
             self.ASR_OUTPUT_DIR: str = os.path.join(
                 self.BASE_MOUNT, config.FILE_SYSTEM.OUTPUT_DIR
             )
+            # LOCAL_KALDI settings
+            # TODO read the settings and choose between LOCAL_KALDI mode and ASR API mode
+            # TODO use the work_processor to init the language models
+            # TODO use the work_processor to do the transcoding work
+            # self.ASR_PACKAGE_NAME: str = config.ASR_PACKAGE_NAME
+            # self.ASR_WORD_JSON_FILE: str = config.ASR_WORD_JSON_FILE
+            # self.KALDI_NL_DIR: str = config.KALDI_NL_DIR
+            # self.KALDI_NL_DECODER: str = config.KALDI_NL_DECODER
+            # self.KALDI_NL_MODEL_DIR: str = config.KALDI_NL_MODEL_DIR
+            # self.KALDI_NL_MODEL_FETCHER: str = config.KALDI_NL_MODEL_FETCHER
 
             # ASR API settings
             self.ASR_API_HOST: str = config.ASR_API.HOST
@@ -128,12 +139,12 @@ class AsrWorker(base_worker):
                 else []
             )
         except AttributeError:
-            self.logger.exception("Missing configuration setting")
+            logger.exception("Missing configuration setting")
             quit()
 
         # check if the file system is setup properly
         if not self.validate_data_dirs(self.ASR_INPUT_DIR, self.ASR_OUTPUT_DIR):
-            self.logger.debug("ERROR: data dirs not configured properly")
+            logger.debug("ERROR: data dirs not configured properly")
             if not self.UNIT_TESTING:
                 quit()
 
@@ -147,7 +158,7 @@ class AsrWorker(base_worker):
 
         needs_asr_service = not self.UNIT_TESTING
         if needs_asr_service and not self.wait_for_asr_service():
-            self.logger.error(
+            logger.error(
                 "Error: after 100 attempts the ASR service is still not ready! Stopping worker"
             )
             quit()
@@ -162,12 +173,12 @@ class AsrWorker(base_worker):
         )
 
     def __get_downloader_type(self) -> Literal["DOWNLOAD", "BG_DOWNLOAD"] | None:
-        self.logger.debug("determining downloader type")
+        logger.debug("determining downloader type")
         if "DOWNLOAD" in self.DANE_DEPENDENCIES:
             return "DOWNLOAD"
         elif "BG_DOWNLOAD" in self.DANE_DEPENDENCIES:
             return "BG_DOWNLOAD"
-        self.logger.warning(
+        logger.warning(
             "Warning: did not find DOWNLOAD or BG_DOWNLOAD in worker dependencies"
         )
         return None
@@ -176,8 +187,8 @@ class AsrWorker(base_worker):
     def wait_for_asr_service(self, attempts: int = 0) -> bool:
         url = "http://{}:{}/ping".format(self.ASR_API_HOST, self.ASR_API_PORT)
         resp = requests.get(url)
-        self.logger.info(resp.status_code)
-        self.logger.info(resp.text)
+        logger.info(resp.status_code)
+        logger.info(resp.text)
         if resp.status_code == 200 and resp.text == "pong":
             return True
         if attempts < 100:  # TODO add to configuration
@@ -192,7 +203,7 @@ class AsrWorker(base_worker):
         o_dir = Path(asr_output_dir)
 
         if not os.path.exists(i_dir.parent.absolute()):
-            self.logger.debug(
+            logger.debug(
                 "{} does not exist. Make sure BASE_MOUNT_DIR exists before retrying".format(
                     i_dir.parent.absolute()
                 )
@@ -202,15 +213,15 @@ class AsrWorker(base_worker):
         # make sure the input and output dirs are there
         try:
             os.makedirs(i_dir, 0o755)
-            self.logger.debug("created ASR input dir: {}".format(i_dir))
+            logger.debug("created ASR input dir: {}".format(i_dir))
         except FileExistsError as e:
-            self.logger.debug(e)
+            logger.debug(e)
 
         try:
             os.makedirs(o_dir, 0o755)
-            self.logger.debug("created ASR output dir: {}".format(o_dir))
+            logger.debug("created ASR output dir: {}".format(o_dir))
         except FileExistsError as e:
-            self.logger.debug(e)
+            logger.debug(e)
 
         return True
 
@@ -218,9 +229,9 @@ class AsrWorker(base_worker):
 
     # DANE callback function, called whenever there is a job for this worker
     def callback(self, task: Task, doc: Document) -> CallbackResponse:
-        self.logger.debug("receiving a task from the DANE (mock) server!")
-        self.logger.debug(task)
-        self.logger.debug(doc)
+        logger.debug("receiving a task from the DANE (mock) server!")
+        logger.debug(task)
+        logger.debug(doc)
 
         # TODO check if a transcript was already generated
 
@@ -234,7 +245,7 @@ class AsrWorker(base_worker):
 
         # try to download the file if no DANE download worker was configured
         if download_result is None:
-            self.logger.debug(
+            logger.debug(
                 "The file was not downloaded by the DANE worker, downloading it myself..."
             )
             download_result = self.download_content(doc)
@@ -251,7 +262,7 @@ class AsrWorker(base_worker):
 
         # step 3 submit the input file to the ASR service
         asr_result = self.submit_asr_job(input_file, input_hash)
-        self.logger.info(asr_result)
+        logger.info(asr_result)
 
         # step 4 generate a transcript from the ASR service's output
         if asr_result.state == 200:
@@ -288,22 +299,22 @@ class AsrWorker(base_worker):
         return {"state": asr_result.state, "message": asr_result.message}
 
     def cleanup_input_file(self, input_file: str, actually_delete: bool) -> bool:
-        self.logger.debug(f"Verifying deletion of input file: {input_file}")
+        logger.debug(f"Verifying deletion of input file: {input_file}")
         if actually_delete is False:
             return True
 
         # first remove the input file
         try:
             os.remove(input_file)
-            self.logger.info(f"Deleted ASR input file: {input_file}")
+            logger.info(f"Deleted ASR input file: {input_file}")
             # also remove the transcoded mp3 file (if any)
             if input_file.find(".mp3") == -1 and input_file.find(".") != -1:
                 mp3_input_file = f"{input_file[:input_file.rfind('.')]}.mp3"
                 if os.path.exists(mp3_input_file):
                     os.remove(mp3_input_file)
-                    self.logger.info(f"Deleted mp3 transcode file: {mp3_input_file}")
+                    logger.info(f"Deleted mp3 transcode file: {mp3_input_file}")
         except OSError:
-            self.logger.exception("Could not delete input file")
+            logger.exception("Could not delete input file")
             return False
 
         # now remove the "chunked path" from /mnt/dane-fs/input-files/03/d2/8a/03d28a03643a981284b403b91b95f6048576c234/xyz.mp4
@@ -312,13 +323,11 @@ class AsrWorker(base_worker):
             os.removedirs(
                 f".{input_file[len(self.ASR_INPUT_DIR):input_file.rfind(os.sep)]}"
             )  # /03/d2/8a/03d28a03643a981284b403b91b95f6048576c234
-            self.logger.info("Deleted empty input dirs too")
+            logger.info("Deleted empty input dirs too")
         except OSError:
-            self.logger.exception("OSError while removing empty input file dirs")
+            logger.exception("OSError while removing empty input file dirs")
         except FileNotFoundError:
-            self.logger.exception(
-                "FileNotFoundError while removing empty input file dirs"
-            )
+            logger.exception("FileNotFoundError while removing empty input file dirs")
 
         return True  # return True even if empty dirs were not removed
 
@@ -332,7 +341,7 @@ class AsrWorker(base_worker):
         asr_output_dir: str,
         provenance: ASRProvenance = None,
     ) -> None:
-        self.logger.debug("saving results to DANE, task id={0}".format(task._id))
+        logger.debug("saving results to DANE, task id={0}".format(task._id))
         # TODO figure out the multiple lines per transcript (refresh my memory)
         r = Result(
             self.generator,
@@ -360,7 +369,7 @@ class AsrWorker(base_worker):
 
         # split up the file in asset_id (used for creating a subfolder in the output) and extension
         asset_id, extension = os.path.splitext(file_name)
-        self.logger.debug("working with this asset ID {}".format(asset_id))
+        logger.debug("working with this asset ID {}".format(asset_id))
         return asset_id
 
     def get_asr_output_dir(self, asset_id: str) -> str:
@@ -374,15 +383,15 @@ class AsrWorker(base_worker):
     # https://www.openbeelden.nl/files/29/29494.29451.WEEKNUMMER243-HRE00015742.mp4
     def download_content(self, doc: Document) -> Optional[DownloadResult]:
         if not doc.target or "url" not in doc.target or not doc.target["url"]:
-            self.logger.debug("No url found in DANE doc")
+            logger.debug("No url found in DANE doc")
             return None
 
-        self.logger.debug("downloading {}".format(doc.target["url"]))
+        logger.debug("downloading {}".format(doc.target["url"]))
         fn = os.path.basename(urlparse(doc.target["url"]).path)
         # fn = unquote(fn)
         # fn = doc.target['url'][doc.target['url'].rfind('/') +1:]
         output_file = os.path.join(self.ASR_INPUT_DIR, fn)
-        self.logger.debug("saving to file {}".format(fn))
+        logger.debug("saving to file {}".format(fn))
 
         # download if the file is not present (preventing unnecessary downloads)
         start_time = time()
@@ -398,14 +407,14 @@ class AsrWorker(base_worker):
         )
 
     def fetch_downloaded_content(self, doc: Document) -> Optional[DownloadResult]:
-        self.logger.debug("checking download worker output")
+        logger.debug("checking download worker output")
         downloader_type = self.__get_downloader_type()
         if not downloader_type:
-            self.logger.warning("BG_DOWNLOAD or DOWNLOAD type must be configured")
+            logger.warning("BG_DOWNLOAD or DOWNLOAD type must be configured")
             return None
 
         possibles = self.handler.searchResult(doc._id, downloader_type)
-        self.logger.info(possibles)
+        logger.info(possibles)
         # NOTE now MUST use the latest dane-beng-download-worker or dane-download-worker
         if len(possibles) > 0 and "file_path" in possibles[0]:
             return DownloadResult(
@@ -414,13 +423,13 @@ class AsrWorker(base_worker):
                 possibles[0].get("mime_type", "unknown"),
                 possibles[0].get("content_length", -1),
             )
-        self.logger.error("No file_path found in download result")
+        logger.error("No file_path found in download result")
         return None
 
     """----------------------------------INTERACT WITH ASR SERVIVCE (DOCKER CONTAINER) --------------------------"""
 
     def submit_asr_job(self, input_file: str, input_hash: str) -> AsrResult:
-        self.logger.debug(
+        logger.debug(
             "Going to submit {} to the ASR service, using PID={}".format(
                 input_file, input_hash
             )
@@ -436,7 +445,7 @@ class AsrWorker(base_worker):
                 "1" if self.ASR_API_WAIT_FOR_COMPLETION else "0",
                 "1" if self.ASR_API_SIMULATE else "0",
             )
-            self.logger.debug(dane_asr_api_url)
+            logger.debug(dane_asr_api_url)
             resp = requests.put(dane_asr_api_url)
 
             # return the result right away if in synchronous mode
@@ -445,7 +454,7 @@ class AsrWorker(base_worker):
             else:  # poll the ASR service (async mode)
                 return self._poll_asr_service(input_file, input_hash, start_time)
         except requests.exceptions.ConnectionError:
-            self.logger.exception("Could not connect to ASR service")
+            logger.exception("Could not connect to ASR service")
             return AsrResult(
                 500,
                 "Failure: could not connect to the ASR service",
@@ -456,7 +465,7 @@ class AsrWorker(base_worker):
         self, resp: requests.Response, start_time: float
     ) -> AsrResult:
         if resp.status_code == 200:
-            self.logger.debug("The ASR service is done, returning the results")
+            logger.debug("The ASR service is done, returning the results")
             try:
                 data = json.loads(resp.text)
                 return AsrResult(
@@ -465,12 +474,12 @@ class AsrWorker(base_worker):
                     time() - start_time,  # processing_time
                 )  # NOTE see dane-kaldi-nl-api for the returned data
             except json.JSONDecodeError:
-                self.logger.exception("ASR service returned invalid JSON")
+                logger.exception("ASR service returned invalid JSON")
             except KeyError:
-                self.logger.exception("ASR service JSON did not contain expected data")
+                logger.exception("ASR service JSON did not contain expected data")
 
-        self.logger.error("ASR service did not return success")
-        self.logger.debug(resp.text)
+        logger.error("ASR service did not return success")
+        logger.debug(resp.text)
         return AsrResult(
             500,
             f"Failure: the ASR service returned status_code {resp.status_code}",
@@ -481,9 +490,9 @@ class AsrWorker(base_worker):
     def _poll_asr_service(
         self, input_file: str, input_hash: str, start_time: float
     ) -> AsrResult:
-        self.logger.debug("Polling the ASR service to check when it is finished")
+        logger.debug("Polling the ASR service to check when it is finished")
         while True:
-            self.logger.debug("Polling the ASR service to wait for completion")
+            logger.debug("Polling the ASR service to wait for completion")
             try:
                 resp = requests.get(
                     "http://{0}:{1}/api/{2}/{3}".format(
@@ -515,10 +524,10 @@ class AsrWorker(base_worker):
                         time() - start_time,
                     )
             except requests.exceptions.ConnectionError:
-                self.logger.exception("Could not connect to ASR service (polling)")
+                logger.exception("Could not connect to ASR service (polling)")
                 break
             except json.JSONDecodeError:
-                self.logger.exception("Could not connect to ASR service (polling)")
+                logger.exception("Could not connect to ASR service (polling)")
                 break
 
             # wait for ten seconds before polling again
@@ -535,7 +544,7 @@ class AsrWorker(base_worker):
     def asr_output_to_transcript(
         self, asr_output_dir: str
     ) -> List[ParsedResult] | None:
-        self.logger.debug(
+        logger.debug(
             "generating a transcript from the ASR output in: {0}".format(asr_output_dir)
         )
         transcriptions = None
@@ -551,13 +560,13 @@ class AsrWorker(base_worker):
                 ) as asr_file:
                     transcriptions = self.__parse_asr_results(asr_file, times)
             except EnvironmentError as e:  # OSError or IOError...
-                self.logger.debug(os.strerror(e.errno))
+                logger.debug(os.strerror(e.errno))
 
             # Clean up the extracted dir
             # shutil.rmtree(asr_output_dir)
-            # self.logger.debug("Cleaned up folder {}".format(asr_output_dir))
+            # logger.debug("Cleaned up folder {}".format(asr_output_dir))
         else:
-            self.logger.debug(
+            logger.debug(
                 "Error: cannot generate transcript; ASR output dir does not exist"
             )
 
@@ -581,7 +590,7 @@ class AsrWorker(base_worker):
 
             # Check number of words matches the number of word_times
             if not len(word_times) == num_words:
-                self.logger.debug(
+                logger.debug(
                     "Number of words does not match word-times for file: {}, "
                     "current position in file: {}".format(asr_file.name, cur_pos)
                 )
