@@ -350,7 +350,7 @@ python-versions = ">=3.7"
 
 [[package]]
 name = "types-requests"
-version = "2.28.3"
+version = "2.28.11.2"
 description = "Typing stubs for requests"
 category = "dev"
 optional = false
@@ -402,7 +402,7 @@ PyYAML = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "0ad991e77aa0894036e2e74ae33a3edc8f5d5edd60a9bbe7f11450964e9fc3ef"
+content-hash = "d83a1c4d34581e80cb31bb14f538f0d793129e3a66c37ed56d4f54d7181574a6"
 
 [metadata.files]
 attrs = []
