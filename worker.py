@@ -39,12 +39,22 @@ Instead we put the ASR in:
 
 
 # TODO get version from Kaldi CLI
-class Provenance(TypedDict):
+@dataclass
+class ASRProvenance:
     asr_processing_time: float  # retrieved via submit_asr_job()
-    kaldi_nl_version: str  # Kaldi-NL v0.4.1
-    kaldi_nl_git_url: str  # https://github.com/opensource-spraakherkenning-nl/Kaldi_NL
-    dane_asr_worker_version: str  # version of this worker
-    dane_asr_worker_git_url: str
+    download_time: float  # retrieved via dane-beng-download-worker or download_content()
+    kaldi_nl_version: str = "Kaldi-NL v0.4.1"  # default for now
+    kaldi_nl_git_url: str = (
+        "https://github.com/opensource-spraakherkenning-nl/Kaldi_NL"  # default for now
+    )
+
+    def to_json(self):
+        return {
+            "asr_processing_time": self.asr_processing_time,
+            "download_time": self.download_time,
+            "kaldi_nl_version": self.kaldi_nl_version,
+            "kaldi_nl_git_url": self.kaldi_nl_git_url,
+        }
 
 
 # NOTE copied from dane-beng-download-worker (move this to DANE later)
@@ -53,13 +63,14 @@ class DownloadResult:
     file_path: str  # target_file_path,  # TODO harmonize with dane-download-worker
     mime_type: Optional[str]  # download_data.get("mime_type", "unknown"),
     content_length: Optional[int]  # download_data.get("content_length", -1),
-    download_time: Optional[
-        float
-    ]  # time (secs) it took to receive the data after requesting it
+    download_time: float = (
+        -1
+    )  # time (secs) it took to receive the data after requesting it
 
 
 # returned by submit_asr_job()
-class AsrResult(TypedDict):
+@dataclass
+class AsrResult:
     state: int
     message: str
     processing_time: float
@@ -219,23 +230,23 @@ class AsrWorker(base_worker):
         downloader_type = self.__get_downloader_type()
 
         # step 1 try to fetch the content via the configured DANE download worker
-        dane_download_result = (
+        download_result = (
             self.fetch_downloaded_content(doc) if downloader_type is not None else None
         )
 
         # try to download the file if no DANE download worker was configured
-        if dane_download_result is None:
+        if download_result is None:
             self.logger.debug(
                 "The file was not downloaded by the DANE worker, downloading it myself..."
             )
-            dane_download_result = self.download_content(doc)
-            if dane_download_result is None:
+            download_result = self.download_content(doc)
+            if download_result is None:
                 return {
                     "state": 500,
                     "message": "Could not download the document content",
                 }
 
-        input_file = dane_download_result.file_path
+        input_file = download_result.file_path
 
         # step 2 create hash of input file to use for progress tracking
         input_hash = self.hash_string(input_file)
@@ -245,13 +256,21 @@ class AsrWorker(base_worker):
         self.logger.info(asr_result)
 
         # step 4 generate a transcript from the ASR service's output
-        if asr_result["state"] == 200:
+        if asr_result.state == 200:
             # TODO change this, harmonize the asset ID with the process ID (pid)
             asr_output_dir = self.get_asr_output_dir(self.get_asset_id(input_file))
             transcript = self.asr_output_to_transcript(asr_output_dir)
             if transcript:
                 if self.cleanup_input_file(input_file, self.DELETE_INPUT_ON_COMPLETION):
-                    self.save_to_dane_index(doc, task, transcript, asr_output_dir)
+                    self.save_to_dane_index(
+                        doc,
+                        task,
+                        transcript,
+                        asr_output_dir,
+                        ASRProvenance(
+                            asr_result.processing_time, download_result.download_time
+                        ),
+                    )
                     return {
                         "state": 200,
                         "message": "Successfully generated a transcript file from the ASR service output",
@@ -268,7 +287,7 @@ class AsrWorker(base_worker):
                 }
 
         # something went wrong inside the ASR service, return that response here
-        return asr_result
+        return {"state": asr_result.state, "message": asr_result.message}
 
     def cleanup_input_file(self, input_file: str, actually_delete: bool) -> bool:
         self.logger.debug(f"Verifying deletion of input file: {input_file}")
@@ -313,7 +332,7 @@ class AsrWorker(base_worker):
         task: Task,
         transcript: List[ParsedResult],
         asr_output_dir: str,
-        provenance: Provenance = None,
+        provenance: ASRProvenance = None,
     ) -> None:
         self.logger.debug("saving results to DANE, task id={0}".format(task._id))
         # TODO figure out the multiple lines per transcript (refresh my memory)
@@ -323,10 +342,12 @@ class AsrWorker(base_worker):
                 "transcript": transcript,
                 "asr_output_dir": asr_output_dir,
                 "doc_id": doc._id,
-                "task_id": None,  # TODO add this as well
+                "task_id": task._id if task else None,  # TODO add this as well
                 "doc_target_id": doc.target["id"],
                 "doc_target_url": doc.target["url"],
-                "provenance": provenance,  # TODO test this
+                "provenance": provenance.to_json()
+                if provenance
+                else None,  # TODO test this
             },
             api=self.handler,
         )
@@ -384,12 +405,21 @@ class AsrWorker(base_worker):
         self.logger.debug("checking download worker output")
         downloader_type = self.__get_downloader_type()
         if not downloader_type:
+            self.logger.warning("BG_DOWNLOAD or DOWNLOAD type must be configured")
             return None
 
         possibles = self.handler.searchResult(doc._id, downloader_type)
         self.logger.info(possibles)
         # NOTE now MUST use the latest dane-beng-download-worker or dane-download-worker
-        return possibles[0] if len(possibles) > 0 else None
+        if len(possibles) > 0 and "file_path" in possibles[0]:
+            return DownloadResult(
+                possibles[0].get("file_path"),
+                possibles[0].get("mime_type", None),
+                possibles[0].get("content_length", -1),
+                possibles[0].get("download_time", -1),
+            )
+        self.logger.error("No file_path found in download result")
+        return None
 
     """----------------------------------INTERACT WITH ASR SERVIVCE (DOCKER CONTAINER) --------------------------"""
 
@@ -399,7 +429,7 @@ class AsrWorker(base_worker):
                 input_file, input_hash
             )
         )
-        start_time = time()
+        start_time = time()  # record just before calling the ASR service
         try:
             dane_asr_api_url = "http://{}:{}/api/{}/{}?input_file={}&wait_for_completion={}&simulate={}".format(
                 self.ASR_API_HOST,
@@ -412,79 +442,96 @@ class AsrWorker(base_worker):
             )
             self.logger.debug(dane_asr_api_url)
             resp = requests.put(dane_asr_api_url)
-        except requests.exceptions.ConnectionError as e:
-            self.logger.error(e)
-            return self._generate_asr_response(
-                500, "Failure: could not connect to the ASR service", start_time
+
+            # return the result right away if in synchronous mode
+            if self.ASR_API_WAIT_FOR_COMPLETION:
+                return self._parse_asr_service_response(resp, start_time)
+            else:  # poll the ASR service (async mode)
+                return self._poll_asr_service(input_file, input_hash, start_time)
+        except requests.exceptions.ConnectionError:
+            self.logger.exception("Could not connect to ASR service")
+            return AsrResult(
+                500,
+                "Failure: could not connect to the ASR service",
+                time() - start_time,
             )
 
-        # return the result right away if in synchronous mode
-        if self.ASR_API_WAIT_FOR_COMPLETION:
-            if resp.status_code == 200:
-                self.logger.debug("The ASR service is done, returning the results")
+    def _parse_asr_service_response(
+        self, resp: requests.Response, start_time: float
+    ) -> AsrResult:
+        if resp.status_code == 200:
+            self.logger.debug("The ASR service is done, returning the results")
+            try:
                 data = json.loads(resp.text)
-                data["processing_time"] = time() - start_time
-                return data  # NOTE see dane-kaldi-nl-api for the returned data
-            else:
-                self.logger.debug("error returned")
-                self.logger.debug(resp.text)
-                return self._generate_asr_response(
-                    500, "Failure: the ASR service returned an error", start_time
-                )
+                return AsrResult(
+                    data["state"],
+                    data["message"],
+                    time() - start_time,  # processing_time
+                )  # NOTE see dane-kaldi-nl-api for the returned data
+            except json.JSONDecodeError:
+                self.logger.exception("ASR service returned invalid JSON")
+            except KeyError:
+                self.logger.exception("ASR service JSON did not contain expected data")
 
-        # else start polling the ASR service, using the input_hash for reference (TODO synch with asset_id)
+        self.logger.error("ASR service did not return success")
+        self.logger.debug(resp.text)
+        return AsrResult(
+            500,
+            f"Failure: the ASR service returned status_code {resp.status_code}",
+            time() - start_time,
+        )
+
+    # Polls the ASR service, using the input_hash for PID reference (TODO synch with asset_id)
+    def _poll_asr_service(
+        self, input_file: str, input_hash: str, start_time: float
+    ) -> AsrResult:
         self.logger.debug("Polling the ASR service to check when it is finished")
         while True:
             self.logger.debug("Polling the ASR service to wait for completion")
-            resp = requests.get(
-                "http://{0}:{1}/api/{2}/{3}".format(
-                    self.ASR_API_HOST,
-                    self.ASR_API_PORT,
-                    "process",  # replace later with process
-                    input_hash,
+            try:
+                resp = requests.get(
+                    "http://{0}:{1}/api/{2}/{3}".format(
+                        self.ASR_API_HOST,
+                        self.ASR_API_PORT,
+                        "process",
+                        input_hash,
+                    )
                 )
-            )
-            process_msg = json.loads(resp.text)
-
-            state = process_msg["state"] if "state" in process_msg else 500
-            finished = process_msg["finished"] if "finished" in process_msg else False
-
-            if finished:
-                return self._generate_asr_response(
-                    200,
-                    f"The ASR service generated valid output {input_file}",
-                    start_time,
-                )
-            elif state == 500:
-                return self._generate_asr_response(
-                    500,
-                    f"The ASR failed to produce the desired output {input_file}",
-                    start_time,
-                )
-            elif state == 404:
-                return self._generate_asr_response(
-                    404,
-                    f"The ASR failed to find the input file {input_file}",
-                    start_time,
-                )
+                process_msg = json.loads(resp.text)
+                state = process_msg.get("state", 500)
+                finished = process_msg.get("finished", False)
+                if finished:
+                    return AsrResult(
+                        200,
+                        f"The ASR service generated valid output for: {input_file}",
+                        time() - start_time,
+                    )
+                elif state == 500:
+                    return AsrResult(
+                        500,
+                        f"The ASR failed to produce the desired output for: {input_file}",
+                        time() - start_time,
+                    )
+                elif state == 404:
+                    return AsrResult(
+                        404,
+                        f"The ASR failed to find the input file {input_file}",
+                        time() - start_time,
+                    )
+            except requests.exceptions.ConnectionError:
+                self.logger.exception("Could not connect to ASR service (polling)")
+                break
+            except json.JSONDecodeError:
+                self.logger.exception("Could not connect to ASR service (polling)")
+                break
 
             # wait for ten seconds before polling again
             sleep(10)
-
-        return self._generate_asr_response(
+        return AsrResult(
             500,
             f"The ASR failed to produce the desired output {input_file}",
-            start_time,
+            time() - start_time,
         )
-
-    def _generate_asr_response(
-        self, state: int, msg: str, start_time: float
-    ) -> AsrResult:
-        return {
-            "state": state,
-            "message": msg,
-            "processing_time": time() - start_time,
-        }
 
     """----------------------------------PROCESS ASR OUTPUT (DOCKER MOUNT) --------------------------"""
 
