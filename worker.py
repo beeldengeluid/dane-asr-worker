@@ -61,11 +61,9 @@ class ASRProvenance:
 @dataclass
 class DownloadResult:
     file_path: str  # target_file_path,  # TODO harmonize with dane-download-worker
-    mime_type: Optional[str]  # download_data.get("mime_type", "unknown"),
-    content_length: Optional[int]  # download_data.get("content_length", -1),
-    download_time: float = (
-        -1
-    )  # time (secs) it took to receive the data after requesting it
+    download_time: float = -1  # time (secs) taken to receive data after request
+    mime_type: str = "unknown"  # download_data.get("mime_type", "unknown"),
+    content_length: int = -1  # download_data.get("content_length", -1),
 
 
 # returned by submit_asr_job()
@@ -396,9 +394,7 @@ class AsrWorker(base_worker):
         download_time = time() - start_time
         return DownloadResult(
             fn,  # NOTE or output_file? hmmm
-            None,  # TODO fetch mime_type (see dane-download-worker)
-            None,  # TODO fetch content_length (see dane-download-worker)
-            download_time,
+            download_time,  # TODO add mime_type and content_length
         )
 
     def fetch_downloaded_content(self, doc: Document) -> Optional[DownloadResult]:
@@ -414,9 +410,9 @@ class AsrWorker(base_worker):
         if len(possibles) > 0 and "file_path" in possibles[0]:
             return DownloadResult(
                 possibles[0].get("file_path"),
-                possibles[0].get("mime_type", None),
-                possibles[0].get("content_length", -1),
                 possibles[0].get("download_time", -1),
+                possibles[0].get("mime_type", "unknown"),
+                possibles[0].get("content_length", -1),
             )
         self.logger.error("No file_path found in download result")
         return None
