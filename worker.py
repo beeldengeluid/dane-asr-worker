@@ -1,5 +1,5 @@
 from codecs import StreamReaderWriter
-from typing import Any, List, Literal, TypedDict
+from typing import List, Literal, TypedDict, Optional
 import os
 import codecs
 import ntpath
@@ -7,14 +7,14 @@ from pathlib import Path
 import json
 import requests
 from urllib.parse import urlparse
-from time import sleep, perf_counter
+from time import sleep, time
 import hashlib
+from dataclasses import dataclass
 from dane.base_classes import base_worker
 from dane.config import cfg
 from dane import Document, Task, Result
 from base_util import init_logger, validate_config
 
-# from work_processor import process_input_file
 
 """
 This class implements a DANE worker and thus serves as the process receiving tasks from DANE
@@ -47,12 +47,25 @@ class Provenance(TypedDict):
     dane_asr_worker_git_url: str
 
 
+# NOTE copied from dane-beng-download-worker (move this to DANE later)
+@dataclass
+class DownloadResult:
+    file_path: str  # target_file_path,  # TODO harmonize with dane-download-worker
+    mime_type: Optional[str]  # download_data.get("mime_type", "unknown"),
+    content_length: Optional[int]  # download_data.get("content_length", -1),
+    download_time: Optional[
+        float
+    ]  # time (secs) it took to receive the data after requesting it
+
+
+# returned by submit_asr_job()
 class AsrResult(TypedDict):
     state: int
     message: str
     processing_time: float
 
 
+# returned by callback()
 class CallbackResponse(TypedDict):
     state: int
     message: str
@@ -196,7 +209,6 @@ class AsrWorker(base_worker):
 
     # DANE callback function, called whenever there is a job for this worker
     def callback(self, task: Task, doc: Document) -> CallbackResponse:
-        # TODO start_time = perf_counter()
         self.logger.debug("receiving a task from the DANE (mock) server!")
         self.logger.debug(task)
         self.logger.debug(doc)
@@ -206,28 +218,31 @@ class AsrWorker(base_worker):
         # either DOWNLOAD, BG_DOWNLOAD or None (meaning the ASR worker will try to download the data itself)
         downloader_type = self.__get_downloader_type()
 
-        # step 1 (temporary, until DOWNLOAD depency accepts params to override download dir)
-        input_file = (
+        # step 1 try to fetch the content via the configured DANE download worker
+        dane_download_result = (
             self.fetch_downloaded_content(doc) if downloader_type is not None else None
         )
 
-        if input_file is None:
+        # try to download the file if no DANE download worker was configured
+        if dane_download_result is None:
             self.logger.debug(
                 "The file was not downloaded by the DANE worker, downloading it myself..."
             )
-            input_file = self.download_content(doc)
-            if input_file is None:
+            dane_download_result = self.download_content(doc)
+            if dane_download_result is None:
                 return {
                     "state": 500,
                     "message": "Could not download the document content",
                 }
+
+        input_file = dane_download_result.file_path
 
         # step 2 create hash of input file to use for progress tracking
         input_hash = self.hash_string(input_file)
 
         # step 3 submit the input file to the ASR service
         asr_result = self.submit_asr_job(input_file, input_hash)
-        self.logger.debug(asr_result)
+        self.logger.info(asr_result)
 
         # step 4 generate a transcript from the ASR service's output
         if asr_result["state"] == 200:
@@ -338,7 +353,7 @@ class AsrWorker(base_worker):
     """----------------------------------DOWNLOAD FUNCTIONS ---------------------------------"""
 
     # https://www.openbeelden.nl/files/29/29494.29451.WEEKNUMMER243-HRE00015742.mp4
-    def download_content(self, doc):
+    def download_content(self, doc: Document) -> Optional[DownloadResult]:
         if not doc.target or "url" not in doc.target or not doc.target["url"]:
             self.logger.debug("No url found in DANE doc")
             return None
@@ -351,29 +366,30 @@ class AsrWorker(base_worker):
         self.logger.debug("saving to file {}".format(fn))
 
         # download if the file is not present (preventing unnecessary downloads)
+        start_time = time()
         if not os.path.exists(output_file):
             with open(output_file, "wb") as file:
                 response = requests.get(doc.target["url"])
                 file.write(response.content)
                 file.close()
-        return fn
+        download_time = time() - start_time
+        return DownloadResult(
+            fn,  # NOTE or output_file? hmmm
+            None,  # TODO fetch mime_type (see dane-download-worker)
+            None,  # TODO fetch content_length (see dane-download-worker)
+            download_time,
+        )
 
-    def fetch_downloaded_content(self, doc: Document) -> Any | None:
+    def fetch_downloaded_content(self, doc: Document) -> Optional[DownloadResult]:
         self.logger.debug("checking download worker output")
         downloader_type = self.__get_downloader_type()
         if not downloader_type:
             return None
 
-        try:
-            possibles = self.handler.searchResult(doc._id, downloader_type)
-            self.logger.debug(possibles)
-            return possibles[0].payload[
-                "file_path"  # TODO fetch download worker (time) provenance (duration + time to download)
-            ]  # both used in BG_DOWNLOAD and DOWNLOAD DANE.Result
-        except KeyError as e:
-            self.logger.exception(e)
-
-        return None
+        possibles = self.handler.searchResult(doc._id, downloader_type)
+        self.logger.info(possibles)
+        # NOTE now MUST use the latest dane-beng-download-worker or dane-download-worker
+        return possibles[0] if len(possibles) > 0 else None
 
     """----------------------------------INTERACT WITH ASR SERVIVCE (DOCKER CONTAINER) --------------------------"""
 
@@ -383,7 +399,7 @@ class AsrWorker(base_worker):
                 input_file, input_hash
             )
         )
-        start_time = perf_counter()
+        start_time = time()
         try:
             dane_asr_api_url = "http://{}:{}/api/{}/{}?input_file={}&wait_for_completion={}&simulate={}".format(
                 self.ASR_API_HOST,
@@ -407,7 +423,7 @@ class AsrWorker(base_worker):
             if resp.status_code == 200:
                 self.logger.debug("The ASR service is done, returning the results")
                 data = json.loads(resp.text)
-                data["processing_time"] = perf_counter() - start_time
+                data["processing_time"] = time() - start_time
                 return data  # NOTE see dane-kaldi-nl-api for the returned data
             else:
                 self.logger.debug("error returned")
@@ -467,7 +483,7 @@ class AsrWorker(base_worker):
         return {
             "state": state,
             "message": msg,
-            "processing_time": perf_counter() - start_time,
+            "processing_time": time() - start_time,
         }
 
     """----------------------------------PROCESS ASR OUTPUT (DOCKER MOUNT) --------------------------"""
