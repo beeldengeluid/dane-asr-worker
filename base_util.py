@@ -4,6 +4,7 @@ import subprocess
 import os
 from pathlib import Path
 import logging
+import hashlib
 
 
 """
@@ -62,13 +63,32 @@ def validate_config(config: CfgNode, validate_file_paths: bool = True) -> bool:
         assert __check_setting(config.PATHS.OUT_FOLDER, str), "PATHS.OUT_FOLDER"
 
         # Settings for this DANE worker
-        assert config.ASR_API, "ASR_API"
-        assert __check_setting(config.ASR_API.HOST, str), "ASR_API.HOST"
-        assert __check_setting(config.ASR_API.PORT, int), "ASR_API.PORT"
-        assert __check_setting(config.ASR_API.SIMULATE, bool), "ASR_API.SIMULATE"
-        assert __check_setting(
-            config.ASR_API.WAIT_FOR_COMPLETION, bool
-        ), "ASR_API.WAIT_FOR_COMPLETION"
+        if "ASR_API" in config:
+            assert __check_setting(config.ASR_API.HOST, str), "ASR_API.HOST"
+            assert __check_setting(config.ASR_API.PORT, int), "ASR_API.PORT"
+            assert __check_setting(config.ASR_API.SIMULATE, bool), "ASR_API.SIMULATE"
+            assert __check_setting(
+                config.ASR_API.WAIT_FOR_COMPLETION, bool
+            ), "ASR_API.WAIT_FOR_COMPLETION"
+        if "LOCAL_KALDI" in config:
+            assert __check_setting(
+                config.LOCAL_KALDI.ASR_PACKAGE_NAME, str
+            ), "LOCAL_KALDI.ASR_PACKAGE_NAME"
+            assert __check_setting(
+                config.LOCAL_KALDI.ASR_WORD_JSON_FILE, str
+            ), "LOCAL_KALDI.ASR_WORD_JSON_FILE"
+            assert __check_setting(
+                config.LOCAL_KALDI.KALDI_NL_DIR, str
+            ), "LOCAL_KALDI.KALDI_NL_DIR"
+            assert __check_setting(
+                config.LOCAL_KALDI.KALDI_NL_DECODER, str
+            ), "LOCAL_KALDI.KALDI_NL_DECODER"
+            assert __check_setting(
+                config.LOCAL_KALDI.KALDI_NL_MODEL_DIR, str, True
+            ), "LOCAL_KALDI.KALDI_NL_MODEL_DIR"
+            assert __check_setting(
+                config.LOCAL_KALDI.KALDI_NL_MODEL_FETCHER, str
+            ), "LOCAL_KALDI.KALDI_NL_MODEL_FETCHER"
 
         assert config.FILE_SYSTEM, "FILE_SYSTEM"
         assert __check_setting(
@@ -166,3 +186,7 @@ def run_shell_command(cmd: str) -> bool:
     except Exception:
         logger.exception("Exception")
         return False
+
+
+def hash_string(s: str) -> str:
+    return hashlib.sha224("{0}".format(s).encode("utf-8")).hexdigest()
