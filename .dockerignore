@@ -3,7 +3,6 @@ config.yml
 .gitignore
 README.md
 k8s*
-*.sh
 scripts
 tests
 mount
