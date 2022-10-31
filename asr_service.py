@@ -36,9 +36,7 @@ class AsrResult:
     processing_time: float
 
 
-def parse_api_response(
-    api_response: APIResponse, processing_time: float = -1
-) -> AsrResult:
+def to_asr_result(api_response: APIResponse, processing_time: float = -1) -> AsrResult:
     return AsrResult(
         cast(Dict[str, Any], api_response)["state"],
         cast(Dict[str, Any], api_response)["message"],
@@ -100,10 +98,11 @@ class Kaldi_NL(ASRService):
 
     # processes the input and keeps a PID file with status information in asynchronous mode
     def submit_asr_job(self, input_file_path) -> AsrResult:
-        logger.debug(f"processing {input_file_path}")
+        logger.debug(f"Processing ASR for {input_file_path}")
 
         if not os.path.isfile(input_file_path):  # check if inputfile exists
-            return parse_api_response(APIResponse.FILE_NOT_FOUND)
+            logger.error("ASR input file does not exist")
+            return to_asr_result(APIResponse.FILE_NOT_FOUND)
 
         # extract the asset_id, i.e. filename without the path, and the file extension
         asset_id, extension = self._get_asset_info(input_file_path)
@@ -112,15 +111,22 @@ class Kaldi_NL(ASRService):
         try:
             asr_input_path = self._try_transcode(input_file_path, asset_id, extension)
         except ValueError as e:
-            return parse_api_response(APIResponse[str(e)])
+            return to_asr_result(APIResponse[str(e)])
 
+        # NOTE: record processing time for ASR only for now
+        start_time = time()
         # run the ASR
-        return parse_api_response(self._run_asr(asr_input_path, asset_id))
+        api_response = self._run_asr(asr_input_path, asset_id)
+        logger.info(api_response)
+        return to_asr_result(api_response, time() - start_time)
 
     def _try_transcode(self, asr_input_path, asset_id, extension):
+        logger.info(
+            f"Determining if transcode is required for {asr_input_path} ({extension})"
+        )
         if not self._is_audio_file(extension):
-
             if not self._is_transcodable(extension):
+                logger.error(f"input with extension {extension} is not transcodable")
                 raise ValueError(APIResponse.ASR_INPUT_UNACCEPTABLE.name)
 
             transcoding_output_path = get_transcode_output_path(
@@ -132,11 +138,18 @@ class Kaldi_NL(ASRService):
                 transcoding_output_path,
             )
             if success is False:
+                logger.error("Transcode failed")
                 raise ValueError(APIResponse.TRANSCODE_FAILED.name)
 
+            logger.info(
+                f"Transcode of {extension} successful, returning: {transcoding_output_path}"
+            )
             return (
                 transcoding_output_path  # the transcode output is the input for the ASR
             )
+        logger.info(
+            f"No transcode was necessary, returning original input: {asr_input_path}"
+        )
         return asr_input_path
 
     def _get_asset_info(self, file_path):
@@ -155,8 +168,8 @@ class Kaldi_NL(ASRService):
         return extension in [".mov", ".mp4", ".m4a", ".3gp", ".3g2", ".mj2"]
 
     # runs the asr on the input path and puts the results in the ASR_OUTPUT_DIR dir
-    def _run_asr(self, input_path, asset_id):
-        logger.debug("Starting ASR")
+    def _run_asr(self, input_path, asset_id) -> APIResponse:
+        logger.debug(f"Starting ASR on {input_path}")
         cmd = 'cd {}; ./{} "{}" "{}/{}"'.format(
             self.KALDI_NL_DIR,
             self.KALDI_NL_DECODER,
@@ -165,9 +178,9 @@ class Kaldi_NL(ASRService):
             asset_id,
         )
         try:
-            return base_util.run_shell_command(cmd)
+            base_util.run_shell_command(cmd)
         except Exception:
-            logger.exeception("Kaldi command failed")
+            logger.exception("Kaldi command failed")
             return APIResponse.ASR_FAILED
 
         # finally process the ASR results and return the status message
@@ -177,6 +190,7 @@ class Kaldi_NL(ASRService):
         logger.debug("processing the output of {}".format(asset_id))
 
         if self._validate_asr_output(asset_id) is False:
+            logger.error("ASR output is corrupt")
             return APIResponse.ASR_OUTPUT_CORRUPT
 
         # create a word.json file
@@ -197,6 +211,7 @@ class Kaldi_NL(ASRService):
 
     # packages the features and the human readable output (1Best.*)
     def _package_output(self, asset_id):
+        logger.info(f"Packaging output for asset ID: {asset_id}")
         output_dir = self._get_output_dir(asset_id)
         files_to_be_added = [
             "/{0}/liumlog/*.seg".format(output_dir),
@@ -206,6 +221,7 @@ class Kaldi_NL(ASRService):
 
         # also add the words json file if it was generated
         if os.path.exists(self.__get_words_file_path(asset_id)):
+            logger.info("Adding words JSON file to ASR package")
             files_to_be_added.append(self.__get_words_file_path(asset_id))
 
         tar_path = os.path.join(os.sep, output_dir, self.ASR_PACKAGE_NAME)
@@ -219,6 +235,7 @@ class Kaldi_NL(ASRService):
         tar.close()
 
     def _create_word_json(self, asset_id, save_in_asr_output=False):
+        logger.info("Creating word JSON")
         transcript = self.__get_transcript_file_path(asset_id)
         word_json = []
         with open(transcript, encoding="utf-8", mode="r") as file:
