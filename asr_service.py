@@ -6,7 +6,6 @@ import sys
 import logging
 import ntpath
 from api_util import APIResponse
-from typing import cast, Dict, Any
 import base_util
 from transcode import transcode_to_mp3, get_transcode_output_path
 import requests
@@ -39,8 +38,8 @@ class AsrResult:
 
 def to_asr_result(api_response: APIResponse, processing_time: float = -1) -> AsrResult:
     return AsrResult(
-        cast(Dict[str, Any], api_response)["state"],
-        cast(Dict[str, Any], api_response)["message"],
+        api_response.value["state"],
+        api_response.value["message"],
         processing_time,
     )
 
