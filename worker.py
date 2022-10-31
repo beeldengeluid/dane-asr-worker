@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from dane.base_classes import base_worker
 from dane.config import cfg
 from dane import Document, Task, Result
-from base_util import validate_config
+from base_util import validate_config, LOG_FORMAT
 from asr_service import Kaldi_NL, Kaldi_NL_API, ASRService
 
 
@@ -37,7 +37,13 @@ Instead we put the ASR in:
 
 - /mnt/dane-fs/output-files/asr-output/{asset-id}
 """
-logger = logging.getLogger(__name__)
+# initialises the root logger
+logging.basicConfig(
+    level=logging.DEBUG,
+    stream=sys.stdout,  # configure a stream handler only for now (single handler)
+    format=LOG_FORMAT,
+)
+logger = logging.getLogger()
 
 
 # TODO get version from Kaldi CLI

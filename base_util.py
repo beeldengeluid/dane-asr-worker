@@ -14,6 +14,7 @@ Important note on how DANE builds up it's config (which is supplied to validate_
     THEN the local base_config.yml will overwrite anything specified
     THEN the local config.yml will overwrite anything specified there
 """
+LOG_FORMAT = "%(asctime)s|%(levelname)s|%(process)d|%(module)s|%(funcName)s|%(lineno)d|%(message)s"
 logger = logging.getLogger(__name__)
 
 
@@ -30,80 +31,76 @@ def validate_config(config: CfgNode, validate_file_paths: bool = True) -> bool:
     try:
         # rabbitmq settings
         assert config.RABBITMQ, "RABBITMQ"
-        assert __check_setting(config.RABBITMQ.HOST, str), "RABBITMQ.HOST"
-        assert __check_setting(config.RABBITMQ.PORT, int), "RABBITMQ.PORT"
-        assert __check_setting(config.RABBITMQ.EXCHANGE, str), "RABBITMQ.EXCHANGE"
-        assert __check_setting(
+        assert check_setting(config.RABBITMQ.HOST, str), "RABBITMQ.HOST"
+        assert check_setting(config.RABBITMQ.PORT, int), "RABBITMQ.PORT"
+        assert check_setting(config.RABBITMQ.EXCHANGE, str), "RABBITMQ.EXCHANGE"
+        assert check_setting(
             config.RABBITMQ.RESPONSE_QUEUE, str
         ), "RABBITMQ.RESPONSE_QUEUE"
-        assert __check_setting(config.RABBITMQ.USER, str), "RABBITMQ.USER"
-        assert __check_setting(config.RABBITMQ.PASSWORD, str), "RABBITMQ.PASSWORD"
+        assert check_setting(config.RABBITMQ.USER, str), "RABBITMQ.USER"
+        assert check_setting(config.RABBITMQ.PASSWORD, str), "RABBITMQ.PASSWORD"
 
         # Elasticsearch settings
         assert config.ELASTICSEARCH, "ELASTICSEARCH"
-        assert __check_setting(config.ELASTICSEARCH.HOST, list), "ELASTICSEARCH.HOST"
+        assert check_setting(config.ELASTICSEARCH.HOST, list), "ELASTICSEARCH.HOST"
         assert (
             len(config.ELASTICSEARCH.HOST) == 1
             and type(config.ELASTICSEARCH.HOST[0]) == str
         ), "Invalid ELASTICSEARCH.HOST"
 
-        assert __check_setting(config.ELASTICSEARCH.PORT, int), "ELASTICSEARCH.PORT"
-        assert __check_setting(
-            config.ELASTICSEARCH.USER, str, True
-        ), "ELASTICSEARCH.USER"
-        assert __check_setting(
+        assert check_setting(config.ELASTICSEARCH.PORT, int), "ELASTICSEARCH.PORT"
+        assert check_setting(config.ELASTICSEARCH.USER, str, True), "ELASTICSEARCH.USER"
+        assert check_setting(
             config.ELASTICSEARCH.PASSWORD, str, True
         ), "ELASTICSEARCH.PASSWORD"
-        assert __check_setting(config.ELASTICSEARCH.SCHEME, str), "ELASTICSEARCH.SCHEME"
-        assert __check_setting(config.ELASTICSEARCH.INDEX, str), "ELASTICSEARCH.INDEX"
+        assert check_setting(config.ELASTICSEARCH.SCHEME, str), "ELASTICSEARCH.SCHEME"
+        assert check_setting(config.ELASTICSEARCH.INDEX, str), "ELASTICSEARCH.INDEX"
 
         # DANE python lib settings
         assert config.PATHS, "PATHS"
-        assert __check_setting(config.PATHS.TEMP_FOLDER, str), "PATHS.TEMP_FOLDER"
-        assert __check_setting(config.PATHS.OUT_FOLDER, str), "PATHS.OUT_FOLDER"
+        assert check_setting(config.PATHS.TEMP_FOLDER, str), "PATHS.TEMP_FOLDER"
+        assert check_setting(config.PATHS.OUT_FOLDER, str), "PATHS.OUT_FOLDER"
 
         # Settings for this DANE worker
         if "ASR_API" in config:
-            assert __check_setting(config.ASR_API.HOST, str), "ASR_API.HOST"
-            assert __check_setting(config.ASR_API.PORT, int), "ASR_API.PORT"
-            assert __check_setting(config.ASR_API.SIMULATE, bool), "ASR_API.SIMULATE"
-            assert __check_setting(
+            assert check_setting(config.ASR_API.HOST, str), "ASR_API.HOST"
+            assert check_setting(config.ASR_API.PORT, int), "ASR_API.PORT"
+            assert check_setting(config.ASR_API.SIMULATE, bool), "ASR_API.SIMULATE"
+            assert check_setting(
                 config.ASR_API.WAIT_FOR_COMPLETION, bool
             ), "ASR_API.WAIT_FOR_COMPLETION"
         if "LOCAL_KALDI" in config:
-            assert __check_setting(
+            assert check_setting(
                 config.LOCAL_KALDI.ASR_PACKAGE_NAME, str
             ), "LOCAL_KALDI.ASR_PACKAGE_NAME"
-            assert __check_setting(
+            assert check_setting(
                 config.LOCAL_KALDI.ASR_WORD_JSON_FILE, str
             ), "LOCAL_KALDI.ASR_WORD_JSON_FILE"
-            assert __check_setting(
+            assert check_setting(
                 config.LOCAL_KALDI.KALDI_NL_DIR, str
             ), "LOCAL_KALDI.KALDI_NL_DIR"
-            assert __check_setting(
+            assert check_setting(
                 config.LOCAL_KALDI.KALDI_NL_DECODER, str
             ), "LOCAL_KALDI.KALDI_NL_DECODER"
-            assert __check_setting(
+            assert check_setting(
                 config.LOCAL_KALDI.KALDI_NL_MODEL_DIR, str, True
             ), "LOCAL_KALDI.KALDI_NL_MODEL_DIR"
-            assert __check_setting(
+            assert check_setting(
                 config.LOCAL_KALDI.KALDI_NL_MODEL_FETCHER, str
             ), "LOCAL_KALDI.KALDI_NL_MODEL_FETCHER"
 
         assert config.FILE_SYSTEM, "FILE_SYSTEM"
-        assert __check_setting(
+        assert check_setting(
             config.FILE_SYSTEM.BASE_MOUNT, str
         ), "FILE_SYSTEM.BASE_MOUNT"
-        assert __check_setting(
-            config.FILE_SYSTEM.INPUT_DIR, str
-        ), "FILE_SYSTEM.INPUT_DIR"
-        assert __check_setting(
+        assert check_setting(config.FILE_SYSTEM.INPUT_DIR, str), "FILE_SYSTEM.INPUT_DIR"
+        assert check_setting(
             config.FILE_SYSTEM.OUTPUT_DIR, str
         ), "FILE_SYSTEM.OUTPUT_DIR"
 
         assert __check_dane_dependencies(config.DANE_DEPENDENCIES), "DANE_DEPENDENCIES"
 
-        assert __check_setting(
+        assert check_setting(
             config.DELETE_INPUT_ON_COMPLETION, bool
         ), "DELETE_INPUT_ON_COMPLETION"
 
@@ -142,7 +139,7 @@ def __validate_dane_paths(dane_temp_folder: str, dane_out_folder: str) -> None:
         raise (e)
 
 
-def __check_setting(setting: Any, t: type, optional=False) -> bool:
+def check_setting(setting: Any, t: type, optional=False) -> bool:
     return (type(setting) == t and optional is False) or (
         optional and (setting is None or type(setting) == t)
     )
@@ -152,10 +149,6 @@ def __check_dane_dependencies(deps: Any) -> bool:
     deps_to_check: list = deps if type(deps) == list else []
     deps_allowed = ["DOWNLOAD", "BG_DOWNLOAD"]
     return any(dep in deps_allowed for dep in deps_to_check)
-
-
-def __check_log_level(level: str) -> bool:
-    return level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
 def __validate_parent_dirs(paths: list) -> None:

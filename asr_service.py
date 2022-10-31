@@ -10,6 +10,7 @@ from typing import cast, Dict, Any
 import base_util
 from transcode import transcode_to_mp3, get_transcode_output_path
 import requests
+from requests.exceptions import ConnectionError
 from time import time, sleep
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
@@ -46,7 +47,7 @@ def to_asr_result(api_response: APIResponse, processing_time: float = -1) -> Asr
 
 class ASRService(ABC):
     def __init__(self, config, unit_test):
-
+        self.config = config
         # enforce config validation
         if not self._validate_config():
             logger.critical("Malconfigured, quitting...")
@@ -64,18 +65,18 @@ class ASRService(ABC):
 class Kaldi_NL(ASRService):
     def __init__(self, config, unit_test):
         super().__init__(config, unit_test)
-        self.KALDI_NL_DIR = config.KALDI_NL_DIR
-        self.KALDI_NL_DECODER = config.KALDI_NL_DECODER
-        self.KALDI_NL_MODEL_FETCHER: str = config.KALDI_NL_MODEL_FETCHER
+        self.KALDI_NL_DIR = config.LOCAL_KALDI.KALDI_NL_DIR
+        self.KALDI_NL_DECODER = config.LOCAL_KALDI.KALDI_NL_DECODER
+        self.KALDI_NL_MODEL_FETCHER: str = config.LOCAL_KALDI.KALDI_NL_MODEL_FETCHER
         self.KALDI_NL_MODEL_DIR: str = (
-            config.KALDI_NL_MODEL_DIR
+            config.LOCAL_KALDI.KALDI_NL_MODEL_DIR
         )  # NOTE: present in config, but not used...
+        self.ASR_WORD_JSON_FILE = config.LOCAL_KALDI.ASR_WORD_JSON_FILE
+        self.ASR_PACKAGE_NAME = config.LOCAL_KALDI.ASR_PACKAGE_NAME
 
         self.ASR_OUTPUT_DIR = os.path.join(
-            config.BASE_FS_MOUNT_DIR, config.ASR_OUTPUT_DIR
+            config.FILE_SYSTEM.BASE_MOUNT, config.FILE_SYSTEM.OUTPUT_DIR
         )
-        self.ASR_WORD_JSON_FILE = config.ASR_WORD_JSON_FILE
-        self.ASR_PACKAGE_NAME = config.ASR_PACKAGE_NAME
 
         # make sure the language models are downloaded
         if not self._check_language_models(
@@ -87,7 +88,32 @@ class Kaldi_NL(ASRService):
             sys.exit()
 
     def _validate_config(self) -> bool:
-        return True  # TODO implement
+        try:
+            assert (
+                "LOCAL_KALDI" in self.config
+            ), "LOCAL_KALDI section not in self.config"
+            assert base_util.check_setting(
+                self.config.LOCAL_KALDI.ASR_PACKAGE_NAME, str
+            ), "LOCAL_KALDI.ASR_PACKAGE_NAME"
+            assert base_util.check_setting(
+                self.config.LOCAL_KALDI.ASR_WORD_JSON_FILE, str
+            ), "LOCAL_KALDI.ASR_WORD_JSON_FILE"
+            assert base_util.check_setting(
+                self.config.LOCAL_KALDI.KALDI_NL_DIR, str
+            ), "LOCAL_KALDI.KALDI_NL_DIR"
+            assert base_util.check_setting(
+                self.config.LOCAL_KALDI.KALDI_NL_DECODER, str
+            ), "LOCAL_KALDI.KALDI_NL_DECODER"
+            assert base_util.check_setting(
+                self.config.LOCAL_KALDI.KALDI_NL_MODEL_DIR, str, True
+            ), "LOCAL_KALDI.KALDI_NL_MODEL_DIR"
+            assert base_util.check_setting(
+                self.config.LOCAL_KALDI.KALDI_NL_MODEL_FETCHER, str
+            ), "LOCAL_KALDI.KALDI_NL_MODEL_FETCHER"
+        except AssertionError as e:
+            logger.critical(f"Configuration error: {str(e)}")
+            return False
+        return True
 
     def _check_language_models(self, kaldi_nl_dir: str, kaldi_nl_model_fetcher: str):
         logger.debug(
@@ -277,25 +303,47 @@ class Kaldi_NL_API(ASRService):
 
         # wait for the ASR_API to be up
         if not self._wait_for_asr_service():
-            logger.error(
-                "Error: after 100 attempts the ASR service is still not ready! Stopping worker"
-            )
             sys.exit()
 
     def _validate_config(self) -> bool:
-        return True  # TODO implement
+        try:
+            assert "ASR_API" in self.config, "ASR_API section not in self.config"
+            assert base_util.check_setting(
+                self.config.ASR_API.HOST, str
+            ), "ASR_API.HOST"
+            assert base_util.check_setting(
+                self.config.ASR_API.PORT, int
+            ), "ASR_API.PORT"
+            assert base_util.check_setting(
+                self.config.ASR_API.WAIT_FOR_COMPLETION, bool
+            ), "ASR_API.WAIT_FOR_COMPLETION"
+            assert base_util.check_setting(
+                self.config.ASR_API.SIMULATE, bool
+            ), "ASR_API.SIMULATE"
+        except AssertionError as e:
+            logger.critical(f"Configuration error: {str(e)}")
+            return False
+        return True
 
     # make sure the service is ready before letting the server know that this worker is ready
     def _wait_for_asr_service(self, attempts: int = 0) -> bool:
         url = "http://{}:{}/ping".format(self.ASR_API_HOST, self.ASR_API_PORT)
-        resp = requests.get(url)
-        logger.info(resp.status_code)
-        logger.info(resp.text)
-        if resp.status_code == 200 and resp.text == "pong":
-            return True
+        try:
+            resp = requests.get(url)
+            logger.info(resp.status_code)
+            logger.info(resp.text)
+            if resp.status_code == 200 and resp.text == "pong":
+                return True
+        except ConnectionError:
+            logger.critical("Cannot connect to ASR service at all, not retrying")
+            return False
         if attempts < 100:  # TODO add to configuration
             sleep(2)
             self._wait_for_asr_service(attempts + 1)
+
+        logger.critical(
+            "Error: after 100 attempts the ASR service is still not ready! Stopping worker"
+        )
         return False
 
     def submit_asr_job(self, input_file: str) -> AsrResult:
