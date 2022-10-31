@@ -148,9 +148,9 @@ class AsrWorker(base_worker):
             no_api=self.UNIT_TESTING,
         )
 
+    # Determine whether to use the local Kaldi_NL or the remote Kaldi_NL API
     def _init_asr_service(self, config, unit_test) -> ASRService:
-        # now finally determine whether to use the local Kaldi or the remote API
-        use_local_kaldi = "LOCAL_KALDI" in config
+        use_local_kaldi = "LOCAL_KALDI" in config  # local kaldi takes precedence
         if not use_local_kaldi:
             if "ASR_API" not in config:
                 logger.critical("No ASR_API or LOCAL_KALDI configured: quitting...")
@@ -207,9 +207,9 @@ class AsrWorker(base_worker):
 
     # DANE callback function, called whenever there is a job for this worker
     def callback(self, task: Task, doc: Document) -> CallbackResponse:
-        logger.debug("receiving a task from the DANE (mock) server!")
-        logger.debug(task)
-        logger.debug(doc)
+        logger.info("Receiving a task from the DANE (mock) server!")
+        logger.info(task)
+        logger.info(doc)
 
         # TODO check if a transcript was already generated
 
@@ -223,7 +223,7 @@ class AsrWorker(base_worker):
 
         # try to download the file if no DANE download worker was configured
         if download_result is None:
-            logger.debug(
+            logger.info(
                 "The file was not downloaded by the DANE worker, downloading it myself..."
             )
             download_result = self.download_content(doc)
