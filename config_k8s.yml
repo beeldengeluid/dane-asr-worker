@@ -35,9 +35,6 @@ FILE_SYSTEM:
     BASE_MOUNT: '/mnt/dane-fs' #'mount' when running locally
     INPUT_DIR: 'input-files'
     OUTPUT_DIR: 'output-files/asr-output'
-LOGGING: # used in base_util.py
-    LEVEL: 'DEBUG' # DEBUG, INFO, WARNING, ERROR, CRITICAL
-    DIR: 'logs' # directory relative from worker.py
 PATHS: # common settings for each DANE worker to define input/output dirs (with a common mount point)
     TEMP_FOLDER: "/mnt/dane-fs/input-files" # directory is automatically created (use ./mount for local testing)
     OUT_FOLDER: "/mnt/dane-fs/output-files" # directory is automatically created (use ./mount for local testing)

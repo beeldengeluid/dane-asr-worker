@@ -1,0 +1,47 @@
+---
+apiVersion: apps/v1 # DANE ASR worker
+kind: Deployment
+metadata:
+  name: dane-asr-worker-deployment
+  namespace: YOUR_NAMESPACE
+  labels:
+    app: dane-asr-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dane-asr-worker
+  template:
+    metadata:
+      labels:
+        app: dane-asr-worker
+    spec:
+      containers: #Note: now trying out the multi-container setup, so each worker has its own kaldi container
+      - name: dane-asr-worker
+        image: YOUR_REGISTRY/dane-asr-worker:v2  # version with local kaldi
+        imagePullPolicy: Always
+        resources:
+          requests:
+            memory: "16G"
+            cpu: "1"
+          limits:
+            memory: "16G"
+            cpu: "1"
+        volumeMounts:
+        - name: dane-cfg-mnt
+          mountPath: "/root/.DANE"
+          readOnly: true
+        - name: dane-pvc-mnt
+          mountPath: "/mnt/dane-fs"
+        - name: dane-models-pvc-mnt
+          mountPath: "/models" #Note: kaldi_nl image cannot properly configure this dir, so we're stuck with this mount dir
+      volumes:
+      - name: dane-cfg-mnt
+        configMap:
+          name: dane-asr-worker-cfg
+      - name: dane-pvc-mnt
+        persistentVolumeClaim:
+          claimName: asr-data-pvc
+      - name: dane-models-pvc-mnt
+        persistentVolumeClaim:
+          claimName: asr-models-pvc

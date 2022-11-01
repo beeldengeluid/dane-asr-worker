@@ -66,16 +66,6 @@ def test_get_asset_id(asr_worker, input_file, asset_id):
     assert asr_worker.get_asset_id(input_file) == asset_id
 
 
-@pytest.mark.parametrize(
-    "s, hash",
-    [
-        ("file.mp3", "906442a8f0c659227e6af143de05511545cbe0fd28385275ff0e4983"),
-    ],
-)
-def test_hash_string(asr_worker, s, hash):
-    assert asr_worker.hash_string(s) == hash
-
-
 """----------------------------------PROCESS ASR OUTPUT (DOCKER MOUNT) --------------------------"""
 
 

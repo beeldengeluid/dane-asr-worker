@@ -1,10 +1,10 @@
-from typing import Any
+from typing import Any, List
 from yacs.config import CfgNode
-
+import subprocess
 import os
 from pathlib import Path
 import logging
-from logging.handlers import TimedRotatingFileHandler
+import hashlib
 
 
 """
@@ -14,6 +14,8 @@ Important note on how DANE builds up it's config (which is supplied to validate_
     THEN the local base_config.yml will overwrite anything specified
     THEN the local config.yml will overwrite anything specified there
 """
+LOG_FORMAT = "%(asctime)s|%(levelname)s|%(process)d|%(module)s|%(funcName)s|%(lineno)d|%(message)s"
+logger = logging.getLogger(__name__)
 
 
 def validate_config(config: CfgNode, validate_file_paths: bool = True) -> bool:
@@ -24,73 +26,81 @@ def validate_config(config: CfgNode, validate_file_paths: bool = True) -> bool:
         print(str(e))
         return False
 
-    parent_dirs_to_check = []  # parent dirs of file paths must exist
+    parent_dirs_to_check: List[str] = []  # parent dirs of file paths must exist
     # check the DANE.cfg (supplied by config.yml)
     try:
         # rabbitmq settings
         assert config.RABBITMQ, "RABBITMQ"
-        assert __check_setting(config.RABBITMQ.HOST, str), "RABBITMQ.HOST"
-        assert __check_setting(config.RABBITMQ.PORT, int), "RABBITMQ.PORT"
-        assert __check_setting(config.RABBITMQ.EXCHANGE, str), "RABBITMQ.EXCHANGE"
-        assert __check_setting(
+        assert check_setting(config.RABBITMQ.HOST, str), "RABBITMQ.HOST"
+        assert check_setting(config.RABBITMQ.PORT, int), "RABBITMQ.PORT"
+        assert check_setting(config.RABBITMQ.EXCHANGE, str), "RABBITMQ.EXCHANGE"
+        assert check_setting(
             config.RABBITMQ.RESPONSE_QUEUE, str
         ), "RABBITMQ.RESPONSE_QUEUE"
-        assert __check_setting(config.RABBITMQ.USER, str), "RABBITMQ.USER"
-        assert __check_setting(config.RABBITMQ.PASSWORD, str), "RABBITMQ.PASSWORD"
+        assert check_setting(config.RABBITMQ.USER, str), "RABBITMQ.USER"
+        assert check_setting(config.RABBITMQ.PASSWORD, str), "RABBITMQ.PASSWORD"
 
         # Elasticsearch settings
         assert config.ELASTICSEARCH, "ELASTICSEARCH"
-        assert __check_setting(config.ELASTICSEARCH.HOST, list), "ELASTICSEARCH.HOST"
+        assert check_setting(config.ELASTICSEARCH.HOST, list), "ELASTICSEARCH.HOST"
         assert (
             len(config.ELASTICSEARCH.HOST) == 1
             and type(config.ELASTICSEARCH.HOST[0]) == str
         ), "Invalid ELASTICSEARCH.HOST"
 
-        assert __check_setting(config.ELASTICSEARCH.PORT, int), "ELASTICSEARCH.PORT"
-        assert __check_setting(
-            config.ELASTICSEARCH.USER, str, True
-        ), "ELASTICSEARCH.USER"
-        assert __check_setting(
+        assert check_setting(config.ELASTICSEARCH.PORT, int), "ELASTICSEARCH.PORT"
+        assert check_setting(config.ELASTICSEARCH.USER, str, True), "ELASTICSEARCH.USER"
+        assert check_setting(
             config.ELASTICSEARCH.PASSWORD, str, True
         ), "ELASTICSEARCH.PASSWORD"
-        assert __check_setting(config.ELASTICSEARCH.SCHEME, str), "ELASTICSEARCH.SCHEME"
-        assert __check_setting(config.ELASTICSEARCH.INDEX, str), "ELASTICSEARCH.INDEX"
-
-        # logging
-        assert config.LOGGING, "LOGGING"
-        assert __check_setting(config.LOGGING.LEVEL, str), "LOGGING.LEVEL"
-        assert __check_log_level(config.LOGGING.LEVEL), "Invalid LOGGING.LEVEL defined"
-        assert __check_setting(config.LOGGING.DIR, str), "LOGGING.DIR"
-        parent_dirs_to_check.append(config.LOGGING.DIR)
+        assert check_setting(config.ELASTICSEARCH.SCHEME, str), "ELASTICSEARCH.SCHEME"
+        assert check_setting(config.ELASTICSEARCH.INDEX, str), "ELASTICSEARCH.INDEX"
 
         # DANE python lib settings
         assert config.PATHS, "PATHS"
-        assert __check_setting(config.PATHS.TEMP_FOLDER, str), "PATHS.TEMP_FOLDER"
-        assert __check_setting(config.PATHS.OUT_FOLDER, str), "PATHS.OUT_FOLDER"
+        assert check_setting(config.PATHS.TEMP_FOLDER, str), "PATHS.TEMP_FOLDER"
+        assert check_setting(config.PATHS.OUT_FOLDER, str), "PATHS.OUT_FOLDER"
 
         # Settings for this DANE worker
-        assert config.ASR_API, "ASR_API"
-        assert __check_setting(config.ASR_API.HOST, str), "ASR_API.HOST"
-        assert __check_setting(config.ASR_API.PORT, int), "ASR_API.PORT"
-        assert __check_setting(config.ASR_API.SIMULATE, bool), "ASR_API.SIMULATE"
-        assert __check_setting(
-            config.ASR_API.WAIT_FOR_COMPLETION, bool
-        ), "ASR_API.WAIT_FOR_COMPLETION"
+        if "ASR_API" in config:
+            assert check_setting(config.ASR_API.HOST, str), "ASR_API.HOST"
+            assert check_setting(config.ASR_API.PORT, int), "ASR_API.PORT"
+            assert check_setting(config.ASR_API.SIMULATE, bool), "ASR_API.SIMULATE"
+            assert check_setting(
+                config.ASR_API.WAIT_FOR_COMPLETION, bool
+            ), "ASR_API.WAIT_FOR_COMPLETION"
+        if "LOCAL_KALDI" in config:
+            assert check_setting(
+                config.LOCAL_KALDI.ASR_PACKAGE_NAME, str
+            ), "LOCAL_KALDI.ASR_PACKAGE_NAME"
+            assert check_setting(
+                config.LOCAL_KALDI.ASR_WORD_JSON_FILE, str
+            ), "LOCAL_KALDI.ASR_WORD_JSON_FILE"
+            assert check_setting(
+                config.LOCAL_KALDI.KALDI_NL_DIR, str
+            ), "LOCAL_KALDI.KALDI_NL_DIR"
+            assert check_setting(
+                config.LOCAL_KALDI.KALDI_NL_DECODER, str
+            ), "LOCAL_KALDI.KALDI_NL_DECODER"
+            assert check_setting(
+                config.LOCAL_KALDI.KALDI_NL_MODEL_DIR, str, True
+            ), "LOCAL_KALDI.KALDI_NL_MODEL_DIR"
+            assert check_setting(
+                config.LOCAL_KALDI.KALDI_NL_MODEL_FETCHER, str
+            ), "LOCAL_KALDI.KALDI_NL_MODEL_FETCHER"
 
         assert config.FILE_SYSTEM, "FILE_SYSTEM"
-        assert __check_setting(
+        assert check_setting(
             config.FILE_SYSTEM.BASE_MOUNT, str
         ), "FILE_SYSTEM.BASE_MOUNT"
-        assert __check_setting(
-            config.FILE_SYSTEM.INPUT_DIR, str
-        ), "FILE_SYSTEM.INPUT_DIR"
-        assert __check_setting(
+        assert check_setting(config.FILE_SYSTEM.INPUT_DIR, str), "FILE_SYSTEM.INPUT_DIR"
+        assert check_setting(
             config.FILE_SYSTEM.OUTPUT_DIR, str
         ), "FILE_SYSTEM.OUTPUT_DIR"
 
         assert __check_dane_dependencies(config.DANE_DEPENDENCIES), "DANE_DEPENDENCIES"
 
-        assert __check_setting(
+        assert check_setting(
             config.DELETE_INPUT_ON_COMPLETION, bool
         ), "DELETE_INPUT_ON_COMPLETION"
 
@@ -129,7 +139,7 @@ def __validate_dane_paths(dane_temp_folder: str, dane_out_folder: str) -> None:
         raise (e)
 
 
-def __check_setting(setting: Any, t: type, optional=False) -> bool:
+def check_setting(setting: Any, t: type, optional=False) -> bool:
     return (type(setting) == t and optional is False) or (
         optional and (setting is None or type(setting) == t)
     )
@@ -139,10 +149,6 @@ def __check_dane_dependencies(deps: Any) -> bool:
     deps_to_check: list = deps if type(deps) == list else []
     deps_allowed = ["DOWNLOAD", "BG_DOWNLOAD"]
     return any(dep in deps_allowed for dep in deps_to_check)
-
-
-def __check_log_level(level: str) -> bool:
-    return level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
 def __validate_parent_dirs(paths: list) -> None:
@@ -155,29 +161,25 @@ def __validate_parent_dirs(paths: list) -> None:
         raise (e)
 
 
-def init_logger(config: CfgNode) -> logging.Logger:
-    logger = logging.getLogger("DANE-ASR-WORKER")
-    logger.setLevel(config.LOGGING.LEVEL)
-    # create file handler which logs to file
-    if not os.path.exists(os.path.realpath(config.LOGGING.DIR)):
-        os.makedirs(os.path.realpath(config.LOGGING.DIR), exist_ok=True)
+# used by asr.py and transcode.py
+def run_shell_command(cmd: str) -> bool:
+    logger.info(cmd)
+    try:
+        process = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
+        )
+        stdout, stderr = process.communicate()
+        logger.debug(stdout)
+        logger.debug(stderr)
+        logger.debug(f"return code {process.returncode}")
+        return process.returncode == 0
+    except subprocess.CalledProcessError:
+        logger.exception("CalledProcessError")
+        return False
+    except Exception:
+        logger.exception("Exception")
+        return False
 
-    fh = TimedRotatingFileHandler(
-        os.path.join(os.path.realpath(config.LOGGING.DIR), "dane-asr-worker.log"),
-        when="W6",  # start new log on sunday
-        backupCount=3,
-    )
-    fh.setLevel(config.LOGGING.LEVEL)
-    # create console handler
-    ch = logging.StreamHandler()
-    ch.setLevel(config.LOGGING.LEVEL)
-    # create formatter and add it to the handlers
-    formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S"
-    )
-    fh.setFormatter(formatter)
-    ch.setFormatter(formatter)
-    # add the handlers to the logger
-    logger.addHandler(fh)
-    logger.addHandler(ch)
-    return logger
+
+def hash_string(s: str) -> str:
+    return hashlib.sha224("{0}".format(s).encode("utf-8")).hexdigest()
