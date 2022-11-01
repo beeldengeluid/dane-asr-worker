@@ -1,18 +1,19 @@
 on:
   push:
     branches:
-      - "deactivated_until_required_again"
+      - "main"
+      - "master"
     paths-ignore:
       - ./*.yml
       - README.md
       - LICENSE
       - codemeta.json
 
-name: Deploy to Amazon ECR
+name: Deploy to Amazon ECR (embedded Kaldi_NL version)
 
 jobs:
   deploy:
-    name: Docker build - Upload to ECR
+    name: Docker build - Upload to ECR (embedded Kaldi_NL version)
     runs-on: ubuntu-latest
     environment: production
 
@@ -42,5 +43,5 @@ jobs:
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
       run: |
-        docker build -t $ECR_REGISTRY/${{ steps.repoName.outputs.reponame }}:${{ steps.sha.outputs.sha7 }} -t $ECR_REGISTRY/${{ steps.repoName.outputs.reponame }}:latest .
-        docker push $ECR_REGISTRY/${{ steps.repoName.outputs.reponame }} --all-tags
+        docker build -t $ECR_REGISTRY/dane-asr-worker-with-kaldi:${{ steps.sha.outputs.sha7 }} -t $ECR_REGISTRY/dane-asr-worker-with-kaldi:latest -f kaldi_included.Dockerfile .
+        docker push $ECR_REGISTRY/dane-asr-worker-with-kaldi --all-tags
