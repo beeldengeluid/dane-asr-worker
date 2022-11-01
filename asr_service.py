@@ -115,7 +115,7 @@ class Kaldi_NL(ASRService):
         return True
 
     def _check_language_models(self, kaldi_nl_dir: str, kaldi_nl_model_fetcher: str):
-        logger.debug(
+        logger.info(
             "Checking availability of language models; will download if absent"
         )
         cmd = f"cd {kaldi_nl_dir} && ./{kaldi_nl_model_fetcher}"
@@ -123,7 +123,7 @@ class Kaldi_NL(ASRService):
 
     # processes the input and keeps a PID file with status information in asynchronous mode
     def submit_asr_job(self, input_file_path) -> AsrResult:
-        logger.debug(f"Processing ASR for {input_file_path}")
+        logger.info(f"Processing ASR for {input_file_path}")
 
         if not os.path.isfile(input_file_path):  # check if inputfile exists
             logger.error("ASR input file does not exist")
@@ -194,7 +194,7 @@ class Kaldi_NL(ASRService):
 
     # runs the asr on the input path and puts the results in the ASR_OUTPUT_DIR dir
     def _run_asr(self, input_path, asset_id) -> APIResponse:
-        logger.debug(f"Starting ASR on {input_path}")
+        logger.info(f"Starting ASR on {input_path}")
         cmd = 'cd {}; ./{} "{}" "{}/{}"'.format(
             self.KALDI_NL_DIR,
             self.KALDI_NL_DECODER,
@@ -212,7 +212,7 @@ class Kaldi_NL(ASRService):
         return self._process_asr_output(asset_id)
 
     def _process_asr_output(self, asset_id) -> APIResponse:
-        logger.debug("processing the output of {}".format(asset_id))
+        logger.info("processing the output of {}".format(asset_id))
 
         if self._validate_asr_output(asset_id) is False:
             logger.error("ASR output is corrupt")
@@ -231,7 +231,7 @@ class Kaldi_NL(ASRService):
     # TODO also check if the files and dir for _package_output are there
     def _validate_asr_output(self, asset_id):
         transcript_file = self.__get_transcript_file_path(asset_id)
-        logger.debug(f"Checking if transcript exists: {transcript_file}")
+        logger.info(f"Checking if transcript exists: {transcript_file}")
         return os.path.isfile(transcript_file)
 
     # packages the features and the human readable output (1Best.*)
@@ -347,7 +347,7 @@ class Kaldi_NL_API(ASRService):
 
     def submit_asr_job(self, input_file: str) -> AsrResult:
         input_hash = base_util.hash_string(input_file)
-        logger.debug(
+        logger.info(
             "Going to submit {} to the ASR service, using PID={}".format(
                 input_file, input_hash
             )
@@ -363,7 +363,7 @@ class Kaldi_NL_API(ASRService):
                 "1" if self.ASR_API_WAIT_FOR_COMPLETION else "0",
                 "1" if self.ASR_API_SIMULATE else "0",
             )
-            logger.debug(dane_asr_api_url)
+            logger.info(dane_asr_api_url)
             resp = requests.put(dane_asr_api_url)
 
             # return the result right away if in synchronous mode
@@ -383,7 +383,7 @@ class Kaldi_NL_API(ASRService):
         self, resp: requests.Response, start_time: float
     ) -> AsrResult:
         if resp.status_code == 200:
-            logger.debug("The ASR service is done, returning the results")
+            logger.info("The ASR service is done, returning the results")
             try:
                 data = json.loads(resp.text)
                 return AsrResult(
@@ -397,7 +397,7 @@ class Kaldi_NL_API(ASRService):
                 logger.exception("ASR service JSON did not contain expected data")
 
         logger.error("ASR service did not return success")
-        logger.debug(resp.text)
+        logger.info(resp.text)
         return AsrResult(
             500,
             f"Failure: the ASR service returned status_code {resp.status_code}",
@@ -408,9 +408,9 @@ class Kaldi_NL_API(ASRService):
     def _poll_asr_service(
         self, input_file: str, input_hash: str, start_time: float
     ) -> AsrResult:
-        logger.debug("Polling the ASR service to check when it is finished")
+        logger.info("Polling the ASR service to check when it is finished")
         while True:
-            logger.debug("Polling the ASR service to wait for completion")
+            logger.info("Polling the ASR service to wait for completion")
             try:
                 resp = requests.get(
                     "http://{0}:{1}/api/{2}/{3}".format(
