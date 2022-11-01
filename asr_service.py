@@ -115,9 +115,7 @@ class Kaldi_NL(ASRService):
         return True
 
     def _check_language_models(self, kaldi_nl_dir: str, kaldi_nl_model_fetcher: str):
-        logger.info(
-            "Checking availability of language models; will download if absent"
-        )
+        logger.info("Checking availability of language models; will download if absent")
         cmd = f"cd {kaldi_nl_dir} && ./{kaldi_nl_model_fetcher}"
         return base_util.run_shell_command(cmd)
 
