@@ -172,8 +172,10 @@ def run_shell_command(cmd: str) -> bool:
             shell=True,  # needed to support file glob
         )
 
-        # stdout, stderr = process.communicate()
-
+        stdout, stderr = process.communicate()
+        logger.info(stdout)
+        logger.error(stderr)
+        """
         while True:
             if not process.stdout or not process.stderr:
                 logger.warning("no stdout or stderr in process")
@@ -195,6 +197,7 @@ def run_shell_command(cmd: str) -> bool:
             else:
                 logger.info("nothing left in stdout or stderr")
                 break
+        """
 
         logger.info(f"Process is done: return code {process.returncode}")
         return process.returncode == 0
