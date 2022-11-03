@@ -171,13 +171,30 @@ def run_shell_command(cmd: str) -> bool:
             stderr=subprocess.PIPE,
             shell=True,  # needed to support file glob
         )
+
+        # stdout, stderr = process.communicate()
+
         while True:
-            if not process.stdout:
+            if not process.stdout or not process.stderr:
+                logger.warning("no stdout or stderr in process")
                 break
+
+            is_error = False
+
+            # first try to read the stdout
             line = process.stdout.readline()
-            if not line:
+            if not line:  # some processes use stderr instead
+                line = process.stderr.readline()
+                is_error = True
+
+            if line:
+                if is_error:
+                    logger.error(line)
+                else:
+                    logger.info(line)
+            else:
+                logger.info("nothing left in stdout or stderr")
                 break
-            logger.info(line)
 
         logger.info(f"Process is done: return code {process.returncode}")
         return process.returncode == 0
