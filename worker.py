@@ -15,7 +15,7 @@ from dane.config import cfg
 from dane import Document, Task, Result
 from base_util import validate_config, LOG_FORMAT
 from asr_service import Kaldi_NL, Kaldi_NL_API, ASRService
-
+from pika.exceptions import ChannelClosedByBroker
 
 """
 This class implements a DANE worker and thus serves as the process receiving tasks from DANE
@@ -499,5 +499,13 @@ if __name__ == "__main__":
     w = AsrWorker(cfg)
     try:
         w.run()
+    except ChannelClosedByBroker:
+        """
+        (406, 'PRECONDITION_FAILED - delivery acknowledgement on channel 1 timed out.
+        Timeout value used: 1800000 ms.
+        This timeout value can be configured, see consumers doc guide to learn more')
+        """
+        logger.critical("Please increase the consumer_timeout in your RabbitMQ server")
+        w.stop()
     except (KeyboardInterrupt, SystemExit):
         w.stop()

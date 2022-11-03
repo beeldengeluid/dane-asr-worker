@@ -61,6 +61,7 @@ module = [
   'dane.*',
   'mockito',
   'pika',
+  'pika.exceptions',
   'yaml',
   'yacs.*',
 ]

@@ -166,12 +166,20 @@ def run_shell_command(cmd: str) -> bool:
     logger.info(cmd)
     try:
         process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            shell=True,  # needed to support file glob
         )
-        stdout, stderr = process.communicate()
-        logger.info(stdout)
-        logger.info(stderr)
-        logger.info(f"return code {process.returncode}")
+        while True:
+            if not process.stdout:
+                break
+            line = process.stdout.readline()
+            if not line:
+                break
+            logger.info(line)
+
+        logger.info(f"Process is done: return code {process.returncode}")
         return process.returncode == 0
     except subprocess.CalledProcessError:
         logger.exception("CalledProcessError")
