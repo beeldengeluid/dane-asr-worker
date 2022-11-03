@@ -169,9 +169,9 @@ def run_shell_command(cmd: str) -> bool:
             cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True
         )
         stdout, stderr = process.communicate()
-        logger.debug(stdout)
-        logger.debug(stderr)
-        logger.debug(f"return code {process.returncode}")
+        logger.info(stdout)
+        logger.info(stderr)
+        logger.info(f"return code {process.returncode}")
         return process.returncode == 0
     except subprocess.CalledProcessError:
         logger.exception("CalledProcessError")
