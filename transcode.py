@@ -19,7 +19,7 @@ def transcode_to_mp3(self, path: str, asr_path: str) -> bool:
 
 
 def get_transcode_output_path(
-    self, input_path: os.PathLike, asset_id: os.PathLike
+    self, input_path: os.PathLike, asset_id
 ) -> Optional[str]:
     try:
         return os.path.join(  # normalise all path elements to strings to avoid "Can't mix strings and bytes in path components"
