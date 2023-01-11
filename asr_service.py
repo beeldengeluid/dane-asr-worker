@@ -129,11 +129,13 @@ class Kaldi_NL(ASRService):
 
         # extract the asset_id, i.e. filename without the path, and the file extension
         asset_id, extension = self._get_asset_info(input_file_path)
-
+        logger.info(f"determined asset_id: {asset_id}, extension: {extension} from input_file_path: {input_file_path}")
+        
         # check if the file needs to be transcoded and possibly obtain a new asr_input_path
         try:
             asr_input_path = self._try_transcode(input_file_path, asset_id, extension)
         except ValueError as e:
+            logger.exception("transcode failed")
             return to_asr_result(APIResponse[str(e)])
 
         # NOTE: record processing time for ASR only for now
@@ -152,6 +154,7 @@ class Kaldi_NL(ASRService):
                 logger.error(f"input with extension {extension} is not transcodable")
                 raise ValueError(APIResponse.ASR_INPUT_UNACCEPTABLE.name)
 
+            logger.info(f"calling get_transcode_output_path with asr_input_path: {asr_input_path}, asset_id: {asset_id}")
             transcoding_output_path = get_transcode_output_path(
                 asr_input_path, asset_id
             )
