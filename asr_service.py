@@ -145,7 +145,7 @@ class Kaldi_NL(ASRService):
 
     def _try_transcode(self, asr_input_path, asset_id, extension):
         logger.info(
-            f"Determining if transcode is required for {asr_input_path} ({extension})"
+            f"Determining if transcode is required for asr_input_path: {asr_input_path} asset_id: ({asset_id}) extension: ({extension})"
         )
         if not self._is_audio_file(extension):
             if not self._is_transcodable(extension):
