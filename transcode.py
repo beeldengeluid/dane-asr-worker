@@ -18,9 +18,7 @@ def transcode_to_mp3(path: str, asr_path: str) -> bool:
     return base_util.run_shell_command(cmd)
 
 
-def get_transcode_output_path(
-    input_path: os.PathLike, asset_id
-) -> Optional[str]:
+def get_transcode_output_path(input_path: os.PathLike, asset_id) -> Optional[str]:
     try:
         return os.path.join(  # normalise all path elements to strings to avoid "Can't mix strings and bytes in path components"
             os.sep,
