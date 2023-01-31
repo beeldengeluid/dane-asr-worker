@@ -12,14 +12,14 @@ This class supplies the function for transcoding valid video files into mp3 form
 logger = logging.getLogger(__name__)
 
 
-def transcode_to_mp3(self, path: str, asr_path: str) -> bool:
+def transcode_to_mp3(path: str, asr_path: str) -> bool:
     logger.debug(f"Encoding file: {path}")
     cmd = "ffmpeg -i {0} {1}".format(path, asr_path)
     return base_util.run_shell_command(cmd)
 
 
 def get_transcode_output_path(
-    self, input_path: os.PathLike, asset_id
+    input_path: os.PathLike, asset_id
 ) -> Optional[str]:
     try:
         return os.path.join(  # normalise all path elements to strings to avoid "Can't mix strings and bytes in path components"
