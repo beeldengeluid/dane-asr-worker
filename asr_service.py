@@ -130,7 +130,7 @@ class Kaldi_NL(ASRService):
         # extract the asset_id, i.e. filename without the path, and the file extension
         asset_id, extension = self._get_asset_info(input_file_path)
         logger.info(f"determined asset_id: {asset_id}, extension: {extension} from input_file_path: {input_file_path}")
-        
+
         # check if the file needs to be transcoded and possibly obtain a new asr_input_path
         try:
             asr_input_path = self._try_transcode(input_file_path, asset_id, extension)
