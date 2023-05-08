@@ -1,6 +1,6 @@
 # TODO add container to CLARIAH image registry
 FROM public.ecr.aws/a0x3r1t1/kaldi_nl
-MAINTAINER Jaap Blom <jblom@beeldengeluid.nl>
+LABEL org.opencontainers.image.authors="jblom@beeldengeluid.nl"
 
 # switch to root user, to be able to write to the k8s mount, which is root user by default
 USER root
@@ -41,6 +41,7 @@ RUN mkdir /mnt/dane-fs/models && chmod -R 777 /mnt/dane-fs/models
 WORKDIR /src
 
 RUN pip install poetry
+RUN poetry env use python3.10
 RUN poetry install
 
 # ENTRYPOINT ["tail", "-f", "/dev/null"]
