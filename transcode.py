@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def transcode_to_mp3(path: str, asr_path: str) -> bool:
     logger.debug(f"Encoding file: {path}")
-    cmd = "ffmpeg -i {0} {1}".format(path, asr_path)
+    cmd = "ffmpeg -y -i {0} {1}".format(path, asr_path)
     return base_util.run_shell_command(cmd)
 
 
