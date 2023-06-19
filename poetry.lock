@@ -281,22 +281,23 @@ version = "0.3.6"
 description = "Utils for working with the Distributed Annotation and Enrichment system"
 category = "main"
 optional = false
-python-versions = ">=3.10,<4.0"
-files = [
-    {file = "dane-0.3.6-py3-none-any.whl", hash = "sha256:b99b4d42b4ffd87e863b8211630a4fdb63201eb86bcb85216ad6e505f351f8f9"},
-]
+python-versions = "^3.10"
+files = []
+develop = false
 
 [package.dependencies]
-boto3 = ">=1.26.155,<2.0.0"
-elasticsearch7 = ">=7.17.7,<8.0.0"
-pika = ">=1.3.1,<2.0.0"
-requests = ">=2.28.1,<3.0.0"
-urllib3 = ">=1.26.12,<2.0.0"
-yacs = ">=0.1.8,<0.2.0"
+boto3 = "^1.26.155"
+elasticsearch7 = "^7.17.7"
+pika = "^1.3.1"
+requests = "^2.28.1"
+urllib3 = "^1.26.12"
+yacs = "^0.1.8"
 
 [package.source]
-type = "file"
-url = "../DANE/dist/dane-0.3.6-py3-none-any.whl"
+type = "git"
+url = "ssh://git@github.com/CLARIAH/DANE.git"
+reference = "conf-n-s3"
+resolved_reference = "a052fae77e0dbad7e8c717a25f73ae40fc87f887"
 
 [[package]]
 name = "elasticsearch7"
@@ -811,4 +812,4 @@ PyYAML = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "91382e437b08efd3703d4229f72b40dacf83162b672cf11f18e714098686eeb8"
+content-hash = "25b95b55df8d491f17e6600370965f452897271666728d89bc18d760383a5701"

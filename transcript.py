@@ -1,6 +1,7 @@
 import os
 import codecs
 import logging
+import shutil
 from codecs import StreamReaderWriter
 from typing import TypedDict, List
 
@@ -9,6 +10,8 @@ from dane.s3_util import S3Store
 
 
 logger = logging.getLogger(__name__)
+CTM_FILE = "1Best.ctm"  # contains the word timings
+TXT_FILE = "1Best.txt"  # contains the words
 
 
 class ParsedResult(TypedDict):
@@ -30,12 +33,12 @@ def generate_transcript(asr_output_dir: str) -> List[ParsedResult] | None:
     transcript = None
     try:
         with codecs.open(
-            os.path.join(asr_output_dir, "1Best.ctm"), encoding="utf-8"
+            os.path.join(asr_output_dir, CTM_FILE), encoding="utf-8"
         ) as times_file:
             times = _extract_time_info(times_file)
 
         with codecs.open(
-            os.path.join(asr_output_dir, "1Best.txt"), encoding="utf-8"
+            os.path.join(asr_output_dir, TXT_FILE), encoding="utf-8"
         ) as asr_file:
             transcript = _parse_asr_results(asr_file, times)
     except EnvironmentError as e:  # OSError or IOError...
@@ -44,31 +47,53 @@ def generate_transcript(asr_output_dir: str) -> List[ParsedResult] | None:
     return transcript
 
 
-def delete_asr_output(path: str) -> bool:
-    # Clean up the extracted dir
-    # shutil.rmtree(path)
-    logger.info("Cleaned up folder {}".format(path))
-    return False
+def delete_asr_output(asr_output_dir: str) -> bool:
+    logger.info(f"Deleting output folder: {asr_output_dir}")
+    if asr_output_dir == os.sep or asr_output_dir == ".":
+        logger.warning(f"Rejected deletion of: {asr_output_dir}")
+        return False
+
+    if not _is_valid_kaldi_output(asr_output_dir):
+        logger.warning(
+            f"Tried to delete a dir that did not contain ASR output: {asr_output_dir}"
+        )
+        return False
+
+    try:
+        shutil.rmtree(asr_output_dir)
+        logger.info(f"Cleaned up folder {asr_output_dir}")
+    except Exception:
+        logger.exception(f"Failed to delete output dir {asr_output_dir}")
+        return False
+    return True
 
 
 def transfer_asr_output(path: str) -> bool:
     logger.info(f"Transferring {path} to S3")
-    if not cfg.OUTPUT.S3_ENDPOINT_URL or not cfg.OUTPUT.S3_BUCKET:
+    if any(
+        [
+            not x
+            for x in [
+                cfg.OUTPUT.S3_ENDPOINT_URL,
+                cfg.OUTPUT.S3_BUCKET,
+                cfg.OUTPUT.S3_FOLDER_IN_BUCKET,
+            ]
+        ]
+    ):
         logger.warning(
-            "TRANSFER_ON_COMPLETION configured without providing S3 settings"
+            "TRANSFER_ON_COMPLETION configured without all the necessary S3 settings"
         )
         return False
+
     s3 = S3Store(cfg.OUTPUT.S3_ENDPOINT_URL)
-    BUCKET_DIR = "assets"
-    s3.transfer_to_s3(
+    return s3.transfer_to_s3(
         cfg.OUTPUT.S3_BUCKET,
-        BUCKET_DIR,
+        cfg.OUTPUT.S3_FOLDER_IN_BUCKET,
         [
-            os.path.join(path, "1Best.ctm"),
-            os.path.join(path, "1Best.txt"),
+            os.path.join(path, CTM_FILE),
+            os.path.join(path, TXT_FILE),
         ],
     )
-    return False
 
 
 def _is_valid_kaldi_output(path: str) -> bool:
@@ -77,8 +102,8 @@ def _is_valid_kaldi_output(path: str) -> bool:
             os.path.exists(p)
             for p in [
                 path,
-                os.path.join(path, "1Best.ctm"),
-                os.path.join(path, "1Best.txt"),
+                os.path.join(path, CTM_FILE),
+                os.path.join(path, TXT_FILE),
             ]
         ]
     ):
