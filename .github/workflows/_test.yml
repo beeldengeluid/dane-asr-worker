@@ -1,12 +1,11 @@
-name: "Pre-Commit"
+name: Test
 
 on:
-  push:
+  workflow_call:
 
 jobs:
-  pre-commit:
-    name: "Pre-Commit"
-    runs-on: "ubuntu-latest"
+  test:
+    runs-on: ubuntu-latest
 
     steps:
     - name: "Checkout Repository"
