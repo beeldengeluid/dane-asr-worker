@@ -1,0 +1,16 @@
+name: All branches but main - test only
+
+on:
+  push:
+    branches-ignore:
+      - "main"
+    paths-ignore:
+      - kaldi_included.Dockerfile
+      - Dockerfile
+      - .dockerignore
+      - README.md
+      - LICENSE
+
+jobs:
+  test:
+    uses: "./.github/workflows/_test.yml"
