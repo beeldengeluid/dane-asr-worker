@@ -4,6 +4,9 @@ import logging
 from codecs import StreamReaderWriter
 from typing import TypedDict, List
 
+from dane.config import cfg
+from dane.s3_util import S3Store
+
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +48,26 @@ def delete_asr_output(path: str) -> bool:
     # Clean up the extracted dir
     # shutil.rmtree(path)
     logger.info("Cleaned up folder {}".format(path))
+    return False
+
+
+def transfer_asr_output(path: str) -> bool:
+    logger.info(f"Transferring {path} to S3")
+    if not cfg.OUTPUT.S3_ENDPOINT_URL or not cfg.OUTPUT.S3_BUCKET:
+        logger.warning(
+            "TRANSFER_ON_COMPLETION configured without providing S3 settings"
+        )
+        return False
+    s3 = S3Store(cfg.OUTPUT.S3_ENDPOINT_URL)
+    BUCKET_DIR = "assets"
+    s3.transfer_to_s3(
+        cfg.OUTPUT.S3_BUCKET,
+        BUCKET_DIR,
+        [
+            os.path.join(path, "1Best.ctm"),
+            os.path.join(path, "1Best.txt"),
+        ],
+    )
     return False
 
 
