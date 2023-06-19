@@ -9,4 +9,4 @@ else
     echo "already uninstalled"
 fi
 
-poetry add git+https://git@github.com/CLARIAH/DANE.git#conf-n-s3
+poetry add git+https://git@github.com/CLARIAH/DANE.git#main
