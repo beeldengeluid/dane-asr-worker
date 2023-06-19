@@ -295,7 +295,7 @@ yacs = "^0.1.8"
 
 [package.source]
 type = "git"
-url = "ssh://git@github.com/CLARIAH/DANE.git"
+url = "https://git@github.com/CLARIAH/DANE.git"
 reference = "conf-n-s3"
 resolved_reference = "a052fae77e0dbad7e8c717a25f73ae40fc87f887"
 
@@ -812,4 +812,4 @@ PyYAML = "*"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "25b95b55df8d491f17e6600370965f452897271666728d89bc18d760383a5701"
+content-hash = "2c9a712be56626a1d2a711cb77303374302622b37cc9e2205b7134bee8b82594"
