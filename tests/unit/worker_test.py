@@ -2,8 +2,6 @@ import json
 
 from dane import Document, Result, Task
 import pytest
-
-from tests.unit.output_cases import asr_output_cases
 import worker
 
 DUMMY_FILE_PATH = "path/to/download/file.mp3"
@@ -64,20 +62,3 @@ def asr_worker(config) -> worker.AsrWorker:
 )
 def test_get_asset_id(asr_worker, input_file, asset_id):
     assert asr_worker.get_asset_id(input_file) == asset_id
-
-
-"""----------------------------------PROCESS ASR OUTPUT (DOCKER MOUNT) --------------------------"""
-
-
-@pytest.mark.parametrize(
-    "output_dir, expected_results",
-    [
-        (
-            case.output_dir,
-            case.expected_results,
-        )
-        for case in asr_output_cases
-    ],
-)
-def test_asr_output_to_transcript(asr_worker, output_dir, expected_results):
-    assert asr_worker.asr_output_to_transcript(output_dir) == expected_results

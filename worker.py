@@ -1,7 +1,5 @@
-from codecs import StreamReaderWriter
 from typing import List, Literal, TypedDict, Optional
 import os
-import codecs
 import ntpath
 import sys
 from pathlib import Path
@@ -13,6 +11,11 @@ from dataclasses import dataclass
 from dane.base_classes import base_worker
 from dane.config import cfg
 from dane import Document, Task, Result
+from transcript import (
+    ParsedResult,
+    generate_transcript,
+    # delete_asr_output,
+)
 from base_util import validate_config, LOG_FORMAT
 from asr_service import Kaldi_NL, Kaldi_NL_API, ASRService
 from pika.exceptions import ChannelClosedByBroker
@@ -80,15 +83,6 @@ class CallbackResponse(TypedDict):
     message: str
 
 
-class ParsedResult(TypedDict):
-    words: str
-    wordTimes: List[int]
-    start: float
-    sequenceNr: int
-    fragmentId: str
-    carrierId: str
-
-
 class AsrWorker(base_worker):
     def __init__(self, config):
         logger.info(config)
@@ -138,7 +132,7 @@ class AsrWorker(base_worker):
             "ASR"  # this is the queue that receives the work and NOT the reply queue
         )
         self.__binding_key = "#.ASR"  # ['Video.ASR', 'Sound.ASR']#'#.ASR'
-        self.__depends_on = self.DANE_DEPENDENCIES
+        self.__depends_on = self.DANE_DEPENDENCIES  # TODO make this part of DANE lib?
 
         if not self.UNIT_TESTING:
             self.asr_service = self._init_asr_service(
@@ -250,23 +244,31 @@ class AsrWorker(base_worker):
         if asr_result.state == 200:
             # TODO change this, harmonize the asset ID with the process ID (pid)
             asr_output_dir = self.get_asr_output_dir(self.get_asset_id(input_file))
-            transcript = self.asr_output_to_transcript(asr_output_dir)
+            transcript = generate_transcript(asr_output_dir)
+
+            # TODO transfer output to S3
+
             if transcript:
-                if self.cleanup_input_file(input_file, self.DELETE_INPUT_ON_COMPLETION):
-                    self.save_to_dane_index(
-                        doc,
-                        task,
-                        transcript,
-                        asr_output_dir,
-                        ASRProvenance(
-                            asr_result.processing_time, download_result.download_time
-                        ),
-                    )
-                    return {
-                        "state": 200,
-                        "message": "Successfully generated a transcript file from the ASR service output",
-                    }
-                else:
+                # save it to the dane index
+                self.save_to_dane_index(
+                    doc,
+                    task,
+                    transcript,
+                    asr_output_dir,
+                    ASRProvenance(
+                        asr_result.processing_time, download_result.download_time
+                    ),
+                )
+                return {
+                    "state": 200,
+                    "message": "Successfully generated a transcript file from the ASR service output",
+                }
+
+                # call the exporter
+
+                if not self.cleanup_input_file(
+                    input_file, self.DELETE_INPUT_ON_COMPLETION
+                ):
                     return {
                         "state": 500,
                         "message": "Generated a transcript, but could not delete the input file",
@@ -280,6 +282,7 @@ class AsrWorker(base_worker):
         # something went wrong inside the ASR service, return that response here
         return {"state": asr_result.state, "message": asr_result.message}
 
+    # TODO move this to DANE library as it is quite generic (DELETE_INPUT_ON_COMPLETION param as well)
     def cleanup_input_file(self, input_file: str, actually_delete: bool) -> bool:
         logger.info(f"Verifying deletion of input file: {input_file}")
         if actually_delete is False:
@@ -404,94 +407,6 @@ class AsrWorker(base_worker):
             )
         logger.error("No file_path found in download result")
         return None
-
-    """----------------------------------PROCESS ASR OUTPUT (DOCKER MOUNT) --------------------------"""
-
-    # mount/asr-output/1272-128104-0000
-    def asr_output_to_transcript(
-        self, asr_output_dir: str
-    ) -> List[ParsedResult] | None:
-        logger.info(
-            "generating a transcript from the ASR output in: {0}".format(asr_output_dir)
-        )
-        transcriptions = None
-        if os.path.exists(asr_output_dir):
-            try:
-                with codecs.open(
-                    os.path.join(asr_output_dir, "1Best.ctm"), encoding="utf-8"
-                ) as times_file:
-                    times = self.__extract_time_info(times_file)
-
-                with codecs.open(
-                    os.path.join(asr_output_dir, "1Best.txt"), encoding="utf-8"
-                ) as asr_file:
-                    transcriptions = self.__parse_asr_results(asr_file, times)
-            except EnvironmentError as e:  # OSError or IOError...
-                logger.info(os.strerror(e.errno))
-
-            # Clean up the extracted dir
-            # shutil.rmtree(asr_output_dir)
-            # logger.info("Cleaned up folder {}".format(asr_output_dir))
-        else:
-            logger.info(
-                "Error: cannot generate transcript; ASR output dir does not exist"
-            )
-
-        return transcriptions
-
-    def __parse_asr_results(
-        self, asr_file: StreamReaderWriter, times: List[int]
-    ) -> List[ParsedResult]:
-        transcriptions = []
-        i = 0
-        cur_pos = 0
-
-        for line in asr_file:
-            parts = line.replace("\n", "").split("(")
-
-            # extract the text
-            words = parts[0].strip()
-            num_words = len(words.split(" "))
-            word_times = times[cur_pos : cur_pos + num_words]
-            cur_pos = cur_pos + num_words
-
-            # Check number of words matches the number of word_times
-            if not len(word_times) == num_words:
-                logger.info(
-                    "Number of words does not match word-times for file: {}, "
-                    "current position in file: {}".format(asr_file.name, cur_pos)
-                )
-
-            # extract the carrier and fragment ID
-            carrier_fragid = parts[1].split(" ")[0].split(".")
-            carrier = carrier_fragid[0]
-            fragid = carrier_fragid[1]
-
-            # extract the starttime
-            sTime = parts[1].split(" ")[1].replace(")", "").split(".")
-            starttime = int(sTime[0]) * 1000
-
-            subtitle: ParsedResult = {
-                "words": words,
-                "wordTimes": word_times,
-                "start": float(starttime),
-                "sequenceNr": i,
-                "fragmentId": fragid,
-                "carrierId": carrier,
-            }
-            transcriptions.append(subtitle)
-            i += 1
-        return transcriptions
-
-    def __extract_time_info(self, times_file: StreamReaderWriter) -> List[int]:
-        times = []
-
-        for line in times_file:
-            time_string = line.split(" ")[2]
-            ms_value = int(float(time_string) * 1000)
-            times.append(ms_value)
-
-        return times
 
 
 # Start the worker
