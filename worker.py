@@ -1,7 +1,5 @@
-from codecs import StreamReaderWriter
 from typing import List, Literal, TypedDict, Optional
 import os
-import codecs
 import ntpath
 import sys
 from pathlib import Path
@@ -13,6 +11,12 @@ from dataclasses import dataclass
 from dane.base_classes import base_worker
 from dane.config import cfg
 from dane import Document, Task, Result
+from transcript import (
+    ParsedResult,
+    generate_transcript,
+    delete_asr_output,
+    transfer_asr_output,
+)
 from base_util import validate_config, LOG_FORMAT
 from asr_service import Kaldi_NL, Kaldi_NL_API, ASRService
 from pika.exceptions import ChannelClosedByBroker
@@ -80,15 +84,6 @@ class CallbackResponse(TypedDict):
     message: str
 
 
-class ParsedResult(TypedDict):
-    words: str
-    wordTimes: List[int]
-    start: float
-    sequenceNr: int
-    fragmentId: str
-    carrierId: str
-
-
 class AsrWorker(base_worker):
     def __init__(self, config):
         logger.info(config)
@@ -116,10 +111,12 @@ class AsrWorker(base_worker):
             self.DANE_DEPENDENCIES: list = (
                 config.DANE_DEPENDENCIES if "DANE_DEPENDENCIES" in config else []
             )
-            self.DELETE_INPUT_ON_COMPLETION: bool = (
-                config.DELETE_INPUT_ON_COMPLETION
-                if "DELETE_INPUT_ON_COMPLETION" in config
-                else []
+
+            # read from default DANE settings
+            self.DELETE_INPUT_ON_COMPLETION: bool = config.INPUT.DELETE_ON_COMPLETION
+            self.DELETE_OUTPUT_ON_COMPLETION: bool = config.OUTPUT.DELETE_ON_COMPLETION
+            self.TRANSFER_OUTPUT_ON_COMPLETION: bool = (
+                config.OUTPUT.TRANSFER_ON_COMPLETION
             )
 
         except AttributeError:
@@ -138,7 +135,7 @@ class AsrWorker(base_worker):
             "ASR"  # this is the queue that receives the work and NOT the reply queue
         )
         self.__binding_key = "#.ASR"  # ['Video.ASR', 'Sound.ASR']#'#.ASR'
-        self.__depends_on = self.DANE_DEPENDENCIES
+        self.__depends_on = self.DANE_DEPENDENCIES  # TODO make this part of DANE lib?
 
         if not self.UNIT_TESTING:
             self.asr_service = self._init_asr_service(
@@ -222,12 +219,12 @@ class AsrWorker(base_worker):
         # either DOWNLOAD, BG_DOWNLOAD or None (meaning the ASR worker will try to download the data itself)
         downloader_type = self.__get_downloader_type()
 
-        # step 1 try to fetch the content via the configured DANE download worker
+        # step 1: try to fetch the content via the configured DANE download worker
         download_result = (
             self.fetch_downloaded_content(doc) if downloader_type is not None else None
         )
 
-        # try to download the file if no DANE download worker was configured
+        # step 2: try to download the file if no DANE download worker was configured
         if download_result is None:
             logger.info(
                 "The file was not downloaded by the DANE worker, downloading it myself..."
@@ -241,45 +238,76 @@ class AsrWorker(base_worker):
 
         input_file = download_result.file_path
 
-        # step 3 submit the input file to the ASR service
+        # step 3: submit the input file to the ASR service
         asr_result = self.asr_service.submit_asr_job(input_file)
         # TODO harmonize the asr_result in both work_processor and asr_service
         logger.info(asr_result)
 
-        # step 4 generate a transcript from the ASR service's output
-        if asr_result.state == 200:
-            # TODO change this, harmonize the asset ID with the process ID (pid)
-            asr_output_dir = self.get_asr_output_dir(self.get_asset_id(input_file))
-            transcript = self.asr_output_to_transcript(asr_output_dir)
-            if transcript:
-                if self.cleanup_input_file(input_file, self.DELETE_INPUT_ON_COMPLETION):
-                    self.save_to_dane_index(
-                        doc,
-                        task,
-                        transcript,
-                        asr_output_dir,
-                        ASRProvenance(
-                            asr_result.processing_time, download_result.download_time
-                        ),
-                    )
-                    return {
-                        "state": 200,
-                        "message": "Successfully generated a transcript file from the ASR service output",
-                    }
-                else:
-                    return {
-                        "state": 500,
-                        "message": "Generated a transcript, but could not delete the input file",
-                    }
-            else:
-                return {
-                    "state": 500,
-                    "message": "Failed to generate a transcript file from the ASR service output",
-                }
+        # step 4: generate a transcript from the ASR service's output
+        if asr_result.state != 200:
+            # something went wrong inside the ASR service, return that response here
+            return {"state": asr_result.state, "message": asr_result.message}
 
-        # something went wrong inside the ASR service, return that response here
-        return {"state": asr_result.state, "message": asr_result.message}
+        # step 5: ASR returned successfully, generate the transcript
+        asset_id = self.get_asset_id(input_file)
+        asr_output_dir = self.get_asr_output_dir(asset_id)
+        transcript = generate_transcript(asr_output_dir)
 
+        #
+        if not transcript:
+            return {
+                "state": 500,
+                "message": "Failed to generate a transcript file from the ASR service output",
+            }
+
+        # step 6: transfer the output to S3 (if configured so)
+        transfer_success = True
+        if self.TRANSFER_OUTPUT_ON_COMPLETION:
+            transfer_success = transfer_asr_output(asr_output_dir, asset_id)
+
+        if (
+            not transfer_success
+        ):  # failure of transfer, impedes the workflow, so return error
+            return {
+                "state": 500,
+                "message": "Failed to transfer output to S3",
+            }
+
+        # step 7: clear the output files (if configured so)
+        delete_success = True
+        if self.DELETE_OUTPUT_ON_COMPLETION:
+            delete_success = delete_asr_output(asr_output_dir)
+
+        if (
+            not delete_success
+        ):  # NOTE: just a warning for now, but one to keep an EYE out for
+            logger.warning(f"Could not delete output files: {asr_output_dir}")
+
+        # step 8: save the results back to the DANE index
+        self.save_to_dane_index(
+            doc,
+            task,
+            transcript,
+            asr_output_dir,
+            ASRProvenance(asr_result.processing_time, download_result.download_time),
+        )
+        return {
+            "state": 200,
+            "message": "Successfully generated a transcript file from the ASR service output",
+        }
+
+        # step 9: clean the input file (if configured so)
+        if not self.cleanup_input_file(input_file, self.DELETE_INPUT_ON_COMPLETION):
+            return {
+                "state": 500,
+                "message": "Generated a transcript, but could not delete the input file",
+            }
+
+    def transfer_output_to_s3(self) -> bool:
+        logger.info("TODO implement")
+        return True
+
+    # TODO move this to DANE library as it is quite generic (DELETE_INPUT_ON_COMPLETION param as well)
     def cleanup_input_file(self, input_file: str, actually_delete: bool) -> bool:
         logger.info(f"Verifying deletion of input file: {input_file}")
         if actually_delete is False:
@@ -404,94 +432,6 @@ class AsrWorker(base_worker):
             )
         logger.error("No file_path found in download result")
         return None
-
-    """----------------------------------PROCESS ASR OUTPUT (DOCKER MOUNT) --------------------------"""
-
-    # mount/asr-output/1272-128104-0000
-    def asr_output_to_transcript(
-        self, asr_output_dir: str
-    ) -> List[ParsedResult] | None:
-        logger.info(
-            "generating a transcript from the ASR output in: {0}".format(asr_output_dir)
-        )
-        transcriptions = None
-        if os.path.exists(asr_output_dir):
-            try:
-                with codecs.open(
-                    os.path.join(asr_output_dir, "1Best.ctm"), encoding="utf-8"
-                ) as times_file:
-                    times = self.__extract_time_info(times_file)
-
-                with codecs.open(
-                    os.path.join(asr_output_dir, "1Best.txt"), encoding="utf-8"
-                ) as asr_file:
-                    transcriptions = self.__parse_asr_results(asr_file, times)
-            except EnvironmentError as e:  # OSError or IOError...
-                logger.info(os.strerror(e.errno))
-
-            # Clean up the extracted dir
-            # shutil.rmtree(asr_output_dir)
-            # logger.info("Cleaned up folder {}".format(asr_output_dir))
-        else:
-            logger.info(
-                "Error: cannot generate transcript; ASR output dir does not exist"
-            )
-
-        return transcriptions
-
-    def __parse_asr_results(
-        self, asr_file: StreamReaderWriter, times: List[int]
-    ) -> List[ParsedResult]:
-        transcriptions = []
-        i = 0
-        cur_pos = 0
-
-        for line in asr_file:
-            parts = line.replace("\n", "").split("(")
-
-            # extract the text
-            words = parts[0].strip()
-            num_words = len(words.split(" "))
-            word_times = times[cur_pos : cur_pos + num_words]
-            cur_pos = cur_pos + num_words
-
-            # Check number of words matches the number of word_times
-            if not len(word_times) == num_words:
-                logger.info(
-                    "Number of words does not match word-times for file: {}, "
-                    "current position in file: {}".format(asr_file.name, cur_pos)
-                )
-
-            # extract the carrier and fragment ID
-            carrier_fragid = parts[1].split(" ")[0].split(".")
-            carrier = carrier_fragid[0]
-            fragid = carrier_fragid[1]
-
-            # extract the starttime
-            sTime = parts[1].split(" ")[1].replace(")", "").split(".")
-            starttime = int(sTime[0]) * 1000
-
-            subtitle: ParsedResult = {
-                "words": words,
-                "wordTimes": word_times,
-                "start": float(starttime),
-                "sequenceNr": i,
-                "fragmentId": fragid,
-                "carrierId": carrier,
-            }
-            transcriptions.append(subtitle)
-            i += 1
-        return transcriptions
-
-    def __extract_time_info(self, times_file: StreamReaderWriter) -> List[int]:
-        times = []
-
-        for line in times_file:
-            time_string = line.split(" ")[2]
-            ms_value = int(float(time_string) * 1000)
-            times.append(ms_value)
-
-        return times
 
 
 # Start the worker

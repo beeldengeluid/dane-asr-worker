@@ -100,10 +100,6 @@ def validate_config(config: CfgNode, validate_file_paths: bool = True) -> bool:
 
         assert __check_dane_dependencies(config.DANE_DEPENDENCIES), "DANE_DEPENDENCIES"
 
-        assert check_setting(
-            config.DELETE_INPUT_ON_COMPLETION, bool
-        ), "DELETE_INPUT_ON_COMPLETION"
-
         # validate file paths (not while unit testing)
         if validate_file_paths:
             __validate_parent_dirs(parent_dirs_to_check)

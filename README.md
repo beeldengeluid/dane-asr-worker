@@ -1,4 +1,5 @@
-[![Pre-Commit](https://github.com/beeldengeluid/dane-asr-worker/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/beeldengeluid/dane-asr-worker/actions/workflows/pre-commit.yml)  [![Deploy to Amazon ECR](https://github.com/beeldengeluid/dane-asr-worker/actions/workflows/aws-ecr.yml/badge.svg)](https://github.com/beeldengeluid/dane-asr-worker/actions/workflows/aws-ecr.yml)
+[![main branch](https://github.com/beeldengeluid/dane-asr-worker/actions/workflows/main-branch.yml/badge.svg)](https://github.com/beeldengeluid/dane-asr-worker/actions/workflows/main-branch.yml)
+
 # dane-asr-worker
 
 DANE worker for processing ASR (optimised for Dutch)
@@ -288,5 +289,3 @@ docker tag dane-asr-worker {aws-ecr-server}/dane-asr-worker:{version}
 
 For the {aws-ecr-server} ask your devops engineer.
 For `{version}` follow the `{major version}.{minor version}` approach.
-
-

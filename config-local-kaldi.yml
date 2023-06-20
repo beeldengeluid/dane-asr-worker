@@ -35,5 +35,12 @@ FILE_SYSTEM:
 PATHS:
     TEMP_FOLDER: "mount/input-files"
     OUT_FOLDER: "mount/output-files"
-DANE_DEPENDENCIES: ['BG_DOWNLOAD'] # this param is optional, will be defaulted to [] if absent
-DELETE_INPUT_ON_COMPLETION: True # this param is optional, will be defaulted to False if absent
+INPUT:
+    DELETE_ON_COMPLETION: True # this param is optional, will be defaulted to False if absent
+OUTPUT:
+    DELETE_ON_COMPLETION: True # this param is optional, will be defaulted to False if absent
+    TRANSFER_ON_COMPLETION: True
+    S3_ENDPOINT_URL: "http://localhost:9000"
+    S3_BUCKET: "test-bucket"  # bucket reserved for 1 type of output
+    S3_FOLDER_IN_BUCKET: "assets"  # folder within the bucket
+DANE_DEPENDENCIES: ['DOWNLOAD'] # this param is optional, will be defaulted to [] if absent
