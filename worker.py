@@ -249,7 +249,8 @@ class AsrWorker(base_worker):
             return {"state": asr_result.state, "message": asr_result.message}
 
         # step 5: ASR returned successfully, generate the transcript
-        asr_output_dir = self.get_asr_output_dir(self.get_asset_id(input_file))
+        asset_id = self.get_asset_id(input_file)
+        asr_output_dir = self.get_asr_output_dir(asset_id)
         transcript = generate_transcript(asr_output_dir)
 
         #
@@ -262,7 +263,7 @@ class AsrWorker(base_worker):
         # step 6: transfer the output to S3 (if configured so)
         transfer_success = True
         if self.TRANSFER_OUTPUT_ON_COMPLETION:
-            transfer_success = transfer_asr_output(asr_output_dir)
+            transfer_success = transfer_asr_output(asr_output_dir, asset_id)
 
         if (
             not transfer_success

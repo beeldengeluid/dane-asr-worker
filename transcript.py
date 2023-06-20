@@ -68,8 +68,8 @@ def delete_asr_output(asr_output_dir: str) -> bool:
     return True
 
 
-def transfer_asr_output(path: str) -> bool:
-    logger.info(f"Transferring {path} to S3")
+def transfer_asr_output(path: str, asset_id: str) -> bool:
+    logger.info(f"Transferring {path} to S3 (asset={asset_id})")
     if any(
         [
             not x
@@ -88,7 +88,9 @@ def transfer_asr_output(path: str) -> bool:
     s3 = S3Store(cfg.OUTPUT.S3_ENDPOINT_URL)
     return s3.transfer_to_s3(
         cfg.OUTPUT.S3_BUCKET,
-        cfg.OUTPUT.S3_FOLDER_IN_BUCKET,
+        os.path.join(
+            cfg.OUTPUT.S3_FOLDER_IN_BUCKET, asset_id
+        ),  # assets/<program ID>__<carrier ID>
         [
             os.path.join(path, CTM_FILE),
             os.path.join(path, TXT_FILE),
