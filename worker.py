@@ -283,7 +283,14 @@ class AsrWorker(base_worker):
         ):  # NOTE: just a warning for now, but one to keep an EYE out for
             logger.warning(f"Could not delete output files: {asr_output_dir}")
 
-        # step 8: save the results back to the DANE index
+        # step 8: clean the input file (if configured so)
+        if not self.cleanup_input_file(input_file, self.DELETE_INPUT_ON_COMPLETION):
+            return {
+                "state": 500,
+                "message": "Generated a transcript, but could not delete the input file",
+            }
+
+        # step 9: save the results back to the DANE index
         self.save_to_dane_index(
             doc,
             task,
@@ -296,21 +303,11 @@ class AsrWorker(base_worker):
             "message": "Successfully generated a transcript file from the ASR service output",
         }
 
-        # step 9: clean the input file (if configured so)
-        if not self.cleanup_input_file(input_file, self.DELETE_INPUT_ON_COMPLETION):
-            return {
-                "state": 500,
-                "message": "Generated a transcript, but could not delete the input file",
-            }
-
-    def transfer_output_to_s3(self) -> bool:
-        logger.info("TODO implement")
-        return True
-
     # TODO move this to DANE library as it is quite generic (DELETE_INPUT_ON_COMPLETION param as well)
     def cleanup_input_file(self, input_file: str, actually_delete: bool) -> bool:
         logger.info(f"Verifying deletion of input file: {input_file}")
         if actually_delete is False:
+            logger.info("Configured to leave the input alone, skipping deletion")
             return True
 
         # first remove the input file
