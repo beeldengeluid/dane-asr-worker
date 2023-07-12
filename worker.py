@@ -9,7 +9,6 @@ from urllib.parse import urlparse
 from time import time
 from dataclasses import dataclass
 from dane.base_classes import base_worker
-from dane.config import cfg
 from dane import Document, Task, Result
 from transcript import (
     ParsedResult,
@@ -231,10 +230,9 @@ class AsrWorker(base_worker):
             )
             download_result = self.download_content(doc)
             if download_result is None:
-                return {
-                    "state": 500,
-                    "message": "Could not download the document content",
-                }
+                return self.finalize_callback(
+                    500, "Could not download the document content"
+                )
 
         input_file = download_result.file_path
 
@@ -246,7 +244,9 @@ class AsrWorker(base_worker):
         # step 4: generate a transcript from the ASR service's output
         if asr_result.state != 200:
             # something went wrong inside the ASR service, return that response here
-            return {"state": asr_result.state, "message": asr_result.message}
+            return self.finalize_callback(
+                asr_result.state, asr_result.message, input_file
+            )
 
         # step 5: ASR returned successfully, generate the transcript
         asset_id = self.get_asset_id(input_file)
@@ -255,10 +255,12 @@ class AsrWorker(base_worker):
 
         #
         if not transcript:
-            return {
-                "state": 500,
-                "message": "Failed to generate a transcript file from the ASR service output",
-            }
+            return self.finalize_callback(
+                500,
+                "Failed to generate a transcript file from the ASR service output",
+                input_file,
+                asr_output_dir,
+            )
 
         # step 6: transfer the output to S3 (if configured so)
         transfer_success = True
@@ -268,29 +270,11 @@ class AsrWorker(base_worker):
         if (
             not transfer_success
         ):  # failure of transfer, impedes the workflow, so return error
-            return {
-                "state": 500,
-                "message": "Failed to transfer output to S3",
-            }
+            return self.finalize_callback(
+                500, "Failed to transfer output to S3", input_file, asr_output_dir
+            )
 
-        # step 7: clear the output files (if configured so)
-        delete_success = True
-        if self.DELETE_OUTPUT_ON_COMPLETION:
-            delete_success = delete_asr_output(asr_output_dir)
-
-        if (
-            not delete_success
-        ):  # NOTE: just a warning for now, but one to keep an EYE out for
-            logger.warning(f"Could not delete output files: {asr_output_dir}")
-
-        # step 8: clean the input file (if configured so)
-        if not self.cleanup_input_file(input_file, self.DELETE_INPUT_ON_COMPLETION):
-            return {
-                "state": 500,
-                "message": "Generated a transcript, but could not delete the input file",
-            }
-
-        # step 9: save the results back to the DANE index
+        # step 7: save the results back to the DANE index
         self.save_to_dane_index(
             doc,
             task,
@@ -298,10 +282,42 @@ class AsrWorker(base_worker):
             asr_output_dir,
             ASRProvenance(asr_result.processing_time, download_result.download_time),
         )
-        return {
-            "state": 200,
-            "message": "Successfully generated a transcript file from the ASR service output",
-        }
+        return self.finalize_callback(
+            200,
+            "Successfully generated a transcript file from the ASR service output",
+            input_file,
+            asr_output_dir,
+        )
+
+    # regardless of success or failure, try to cleanup the input/output properly for every callback
+    def finalize_callback(
+        self,
+        state: int,
+        msg: str,
+        input_file: Optional[str] = None,
+        asr_output_dir: Optional[str] = None,
+    ) -> CallbackResponse:
+        cleanup_msg = ""
+
+        # step 1: clean the input file (if configured so)
+        if input_file:
+            if not self.cleanup_input_file(input_file, self.DELETE_INPUT_ON_COMPLETION):
+                logger.warning(
+                    f"Generated a transcript, but could not delete input: {input_file}"
+                )
+                cleanup_msg += "; failed to delete input file"
+
+        # step 2: clear the output files (if configured so)
+        if asr_output_dir:
+            delete_success = True
+            if self.DELETE_OUTPUT_ON_COMPLETION:
+                delete_success = delete_asr_output(asr_output_dir)
+            if (
+                not delete_success
+            ):  # NOTE: just a warning for now, but one to keep an EYE out for
+                logger.warning(f"Could not delete output files: {asr_output_dir}")
+                cleanup_msg += "; failed to delete output files"
+        return {"state": state, "message": msg + cleanup_msg}
 
     # TODO move this to DANE library as it is quite generic (DELETE_INPUT_ON_COMPLETION param as well)
     def cleanup_input_file(self, input_file: str, actually_delete: bool) -> bool:
@@ -433,6 +449,8 @@ class AsrWorker(base_worker):
 
 # Start the worker
 if __name__ == "__main__":
+    from dane.config import cfg
+
     w = AsrWorker(cfg)
     try:
         w.run()
