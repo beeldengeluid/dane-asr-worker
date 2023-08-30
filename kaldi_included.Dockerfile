@@ -1,4 +1,3 @@
-# TODO add container to CLARIAH image registry
 FROM public.ecr.aws/a0x3r1t1/kaldi_nl
 LABEL org.opencontainers.image.authors="jblom@beeldengeluid.nl"
 
@@ -42,6 +41,11 @@ RUN mkdir /mnt/dane-fs/models && chmod -R 777 /mnt/dane-fs/models
 RUN mkdir /poetry-cache && chmod -R 777 /poetry-cache
 
 WORKDIR /src
+
+ARG appuser=app
+RUN useradd --create-home $appuser
+USER $appuser
+ENV PATH="/home/$appuser/.local/bin:$PATH"
 
 RUN pip install poetry
 RUN poetry env use python3.10
