@@ -50,6 +50,7 @@ ENV PATH="/home/$appuser/.local/bin:$PATH"
 RUN pip install poetry
 RUN poetry env use python3.10
 RUN poetry install
+
 # this works, but the virtualenv is not activated (in OpenShift) when running poetry run python worker.py
 # RUN poetry config virtualenvs.create false && poetry install --no-dev --no-interaction --no-ansi
 
