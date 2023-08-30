@@ -2,4 +2,8 @@
 
 echo "Starting virtual env and DANE ASR worker"
 
-poetry run python worker.py
+poetry shell
+
+echo "Now starting the worker"
+
+python ./worker.py
