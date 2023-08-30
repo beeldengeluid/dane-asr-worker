@@ -38,11 +38,15 @@ COPY . /src
 RUN mkdir /mnt/dane-fs && chmod -R 777 /mnt/dane-fs
 RUN mkdir /mnt/dane-fs/models && chmod -R 777 /mnt/dane-fs/models
 
+# create a dir for the poetry cache (for env variable POETRY_CACHE_DIR)
+RUN mkdir /poetry-cache && chmod -R 777 /poetry-cache
+
 WORKDIR /src
 
 RUN pip install poetry
 RUN poetry env use python3.10
-RUN poetry config virtualenvs.create false && poetry install --no-dev --no-interaction --no-ansi
+RUN poetry install
+# RUN poetry config virtualenvs.create false && poetry install --no-dev --no-interaction --no-ansi
 
 # ENTRYPOINT ["tail", "-f", "/dev/null"]
 ENTRYPOINT ["./docker-entrypoint.sh"]
