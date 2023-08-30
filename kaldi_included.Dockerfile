@@ -57,4 +57,5 @@ RUN poetry install
 # RUN poetry config virtualenvs.create false && poetry install --no-dev --no-interaction --no-ansi
 
 # ENTRYPOINT ["tail", "-f", "/dev/null"]
-ENTRYPOINT ["./docker-entrypoint.sh"]
+# ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["poetry", "run", "python", "worker.py"]
