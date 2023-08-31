@@ -1,5 +1,4 @@
-# FROM public.ecr.aws/a0x3r1t1/kaldi_nl
-FROM 917951871879.dkr.ecr.eu-west-1.amazonaws.com/kaldi_nl
+FROM public.ecr.aws/a0x3r1t1/kaldi_nl
 LABEL org.opencontainers.image.authors="jblom@beeldengeluid.nl"
 
 # switch to root user, to be able to write to the k8s mount, which is root user by default
@@ -56,6 +55,6 @@ RUN poetry install
 # this works, but the virtualenv is not activated (in OpenShift) when running poetry run python worker.py
 # RUN poetry config virtualenvs.create false && poetry install --no-dev --no-interaction --no-ansi
 
-# ENTRYPOINT ["tail", "-f", "/dev/null"]
+ENTRYPOINT ["tail", "-f", "/dev/null"]
 # ENTRYPOINT ["./docker-entrypoint.sh"]
-ENTRYPOINT ["poetry", "run", "python", "worker.py"]
+# ENTRYPOINT ["poetry", "run", "python", "worker.py"]
