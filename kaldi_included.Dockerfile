@@ -1,4 +1,5 @@
-FROM public.ecr.aws/a0x3r1t1/kaldi_nl
+# FROM public.ecr.aws/a0x3r1t1/kaldi_nl
+FROM 917951871879.dkr.ecr.eu-west-1.amazonaws.com/kaldi_nl
 LABEL org.opencontainers.image.authors="jblom@beeldengeluid.nl"
 
 # switch to root user, to be able to write to the k8s mount, which is root user by default
@@ -26,9 +27,9 @@ RUN apt install -y build-essential \
 
 RUN wget https://www.python.org/ftp/python/3.10.6/Python-3.10.6.tgz
 RUN tar -xf Python-3.10.*.tgz
-RUN cd Python-3.10.*/ && ./configure --enable-optimizations && make -j $(nproc) && make altinstall
+RUN cd Python-3.10.*/ && ./configure --enable-optimizations && make -j $(nproc) && make install
 
-RUN apt install -y python3-pip
+RUN echo "reinstall pip" && apt install -y python3-pip
 
 # add the Python code & install the required libs
 COPY . /src
@@ -42,19 +43,11 @@ RUN mkdir /poetry-cache && chmod -R 777 /poetry-cache
 
 WORKDIR /src
 
-ARG appuser=app
-RUN useradd --create-home $appuser
-RUN chown app:app ./docker-entrypoint.sh
-USER $appuser
-ENV PATH="/home/$appuser/.local/bin:$PATH"
+# IMPORTANT READ FOR OPENSHIFT https://cloud.redhat.com/blog/a-guide-to-openshift-and-uids
 
 RUN pip install poetry
+ENV POETRY_CACHE_DIR=/poetry-cache
 RUN poetry env use python3.10
-RUN poetry install
+RUN poetry install --without dev
 
-# this works, but the virtualenv is not activated (in OpenShift) when running poetry run python worker.py
-# RUN poetry config virtualenvs.create false && poetry install --no-dev --no-interaction --no-ansi
-
-ENTRYPOINT ["tail", "-f", "/dev/null"]
-# ENTRYPOINT ["./docker-entrypoint.sh"]
-# ENTRYPOINT ["poetry", "run", "python", "worker.py"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
