@@ -16,5 +16,6 @@ jobs:
   build-and-push-ecr:
     uses: ./.github/workflows/_build-and-push-ecr.yml
     permissions:
+      contents: read
       id-token: write
     needs: [test]
