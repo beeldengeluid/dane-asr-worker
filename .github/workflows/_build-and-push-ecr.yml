@@ -30,4 +30,4 @@ jobs:
         file: kaldi_included.Dockerfile
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        push: false
+        push: true
