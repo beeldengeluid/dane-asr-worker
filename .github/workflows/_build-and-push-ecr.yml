@@ -6,8 +6,6 @@ on:
 jobs:
   build-and-push-ecr:
     runs-on: ubuntu-22.04
-    permissions:
-      id-token: write
     steps:
     - name: Checkout
       uses: actions/checkout@v4
