@@ -362,7 +362,7 @@ class AsrWorker(base_worker):
         task: Task,
         transcript: List[ParsedResult],
         asr_output_dir: str,
-        provenance: ASRProvenance = None,
+        provenance: Optional[ASRProvenance] = None,
     ) -> None:
         logger.info("saving results to DANE, task id={0}".format(task._id))
         # TODO figure out the multiple lines per transcript (refresh my memory)
