@@ -3,7 +3,6 @@ from typing import Dict, Any
 
 
 class APIResponse(Enum):
-
     ASR_SUCCESS: Dict[str, Any] = {
         "state": 200,
         "message": "ASR finished successfully",
