@@ -150,6 +150,16 @@ class AsrWorker(base_worker):
             no_api=self.UNIT_TESTING,
         )
 
+        # NOTE: cannot be automaticcally filled, because no git client is present
+        if not self.generator:
+            logger.info("Generator was None, creating it now")
+            self.generator = {
+                "id": "dane-asr-worker",
+                "type": "Software",
+                "name": "ASR",
+                "homepage": "https://github.com/beeldengeluid/dane-asr-worker",
+            }
+
     # Determine whether to use the local Kaldi_NL or the remote Kaldi_NL API
     def _init_asr_service(self, config, unit_test) -> ASRService:
         use_local_kaldi = "LOCAL_KALDI" in config  # local kaldi takes precedence
