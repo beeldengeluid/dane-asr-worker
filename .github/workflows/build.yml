@@ -1,0 +1,52 @@
+on:
+  workflow_call:
+  push:
+
+name: Build
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Poetry setup
+        run: |
+          pipx install poetry==1.7.1
+          pipx inject poetry poetry-plugin-export
+          pipx run poetry config warnings.export false
+          pipx run poetry export --format requirements.txt --output requirements.txt
+
+      - name: Pack setup
+        run: |
+          sudo add-apt-repository ppa:cncf-buildpacks/pack-cli
+          sudo apt update
+          sudo apt install pack-cli
+
+      - name: Registry Login
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract labels
+        id: meta
+        uses: docker/metadata-action@9dc751fe249ad99385a2583ee0d084c400eee04e # v5.4.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          sep-tags: ','
+
+      - name: Show labels
+        run: echo ${{ steps.meta.output.labels }}
+
+      - name: Show tags
+        run: echo ${{ steps.meta.outputs.tags }}
+
+      - name: Build & Push
+        run: pack build ghcr.io/${{ github.repository }} --publish --tag ${{ steps.meta.outputs.tags }}
