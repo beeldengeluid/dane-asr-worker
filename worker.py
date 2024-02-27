@@ -1,3 +1,5 @@
+#!/bin/env python3
+
 from typing import List, Literal, TypedDict, Optional
 import os
 import ntpath

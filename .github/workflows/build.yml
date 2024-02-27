@@ -20,7 +20,6 @@ jobs:
           pipx install poetry==1.7.1
           pipx inject poetry poetry-plugin-export
           pipx run poetry config warnings.export false
-          pipx run poetry export --format requirements.txt --output requirements.txt
 
       - name: Pack setup
         run: |
@@ -49,4 +48,6 @@ jobs:
         run: echo ${{ steps.meta.outputs.tags }}
 
       - name: Build & Push
-        run: pack build ghcr.io/${{ github.repository }} --publish --tag ${{ steps.meta.outputs.tags }}
+        run: |
+        pipx run poetry export --format requirements.txt --output requirements.txt
+        pack build ghcr.io/${{ github.repository }} --publish --tag ${{ steps.meta.outputs.tags }}
