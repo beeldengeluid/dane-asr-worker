@@ -1,0 +1,16 @@
+services:
+  kaldinl:
+    user: root
+    image: 917951871879.dkr.ecr.eu-west-1.amazonaws.com/kaldi_nl:v1.2
+    # image: proycon/kaldi_nl:latest
+    volumes:
+      - ./models:/models
+      - ./data:/data
+    container_name: simple-kaldi-nl
+    command: ./decode_OH.sh /data/lm.mp3 /data/output
+    # env_file:
+    #   - s3-creds.env
+    logging:
+      options:
+        max-size: 20m
+    restart: no
