@@ -10,8 +10,6 @@ from typing import TypedDict, List
 logger = logging.getLogger(__name__)
 
 
-
-
 class ParsedResult(TypedDict):
     words: str
     wordTimes: List[int]
@@ -19,6 +17,7 @@ class ParsedResult(TypedDict):
     sequenceNr: int
     fragmentId: str
     carrierId: str
+
 
 # asr_output_dir e.g mount/asr-output/1272-128104-0000
 # NOTE: only handles Kaldi_NL generated files at this moment
@@ -42,7 +41,8 @@ def generate_transcript(asr_output_dir: str, ctm_file_name: str, txt_file_name: 
 
     return transcript
 
-def save_transcript(transcript:List[ParsedResult], json_output_dir:str, output_file_name:str) -> bool:
+
+def save_transcript(transcript:List[ParsedResult], json_output_dir: str, output_file_name: str) -> bool:
     try:
         path = os.path.join(json_output_dir, output_file_name)
         with open(path, 'w', encoding='utf-8') as f:
@@ -129,23 +129,23 @@ if __name__ == "__main__":
     # SET PARSER
     parser = argparse.ArgumentParser(description='define input and output file location')
     parser.add_argument('-asr_input_dir',
-                            metavar=('asr_input_dir'),
-                            help='place where the (ctm and txt) asr output are stored')
+                        metavar=('asr_input_dir'),
+                        help='place where the (ctm and txt) asr output are stored')
     parser.add_argument('-output_dir',
-                            metavar=('output_dir'),
-                            help='place where the json file is stored')
+                        metavar=('output_dir'),
+                        help='place where the json file is stored')
     parser.add_argument('-ctm_file',
-                            metavar=('ctm_file'),
-                            default="1Best.ctm",  # contains the word timings
-                            help='name of the ctm file including extention')
+                        metavar=('ctm_file'),
+                        default="1Best.ctm",  # contains the word timings
+                        help='name of the ctm file including extention')
     parser.add_argument('-txt_file',
-                            metavar=('ctm_file'),
-                            default="1Best.txt",  # contains the word timings
-                            help='name of the txt file including extention')
+                        metavar=('ctm_file'),
+                        default="1Best.txt",  # contains the word timings
+                        help='name of the txt file including extention')
     parser.add_argument('-output_file',
-                            metavar=('output_file'),
-                            default="1Best.json",  # contains the word timings
-                            help='name of the txt file including extention')
+                        metavar=('output_file'),
+                        default="1Best.json",  # contains the word timings
+                        help='name of the txt file including extention')
     args = parser.parse_args()
     transcript = generate_transcript(args.asr_input_dir, args.ctm_file, args.txt_file)
     save = save_transcript(transcript, args.output_dir, args.output_file)
