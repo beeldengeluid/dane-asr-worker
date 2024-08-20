@@ -42,7 +42,7 @@ def generate_transcript(asr_output_dir: str, ctm_file_name: str, txt_file_name: 
     return transcript
 
 
-def save_transcript(transcript:List[ParsedResult], json_output_dir: str, output_file_name: str) -> bool:
+def save_transcript(transcript: List[ParsedResult], json_output_dir: str, output_file_name: str) -> bool:
     try:
         path = os.path.join(json_output_dir, output_file_name)
         with open(path, 'w', encoding='utf-8') as f:
@@ -51,6 +51,7 @@ def save_transcript(transcript:List[ParsedResult], json_output_dir: str, output_
         logger.exception("Failed to save transcript as josn")
         return False
     return True
+
 
 def _is_valid_kaldi_output(path: str, ctm_file_name: str, txt_file_name: str) -> bool:
     if not all(
