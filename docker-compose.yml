@@ -1,15 +1,21 @@
 services:
-  kaldinl:
-    user: root
+  kaldi_nl:
+    extra_hosts:
+      - "modelhosting.beng.nl=46.23.85.61"
     image: 917951871879.dkr.ecr.eu-west-1.amazonaws.com/kaldi_nl:v1.2
     # image: proycon/kaldi_nl:latest
     volumes:
       - ./models:/models
       - ./data:/data
     container_name: simple-kaldi-nl
-    command: ./decode_OH.sh /data/lm.mp3 /data/output
-    # env_file:
-    #   - s3-creds.env
+    entrypoint: ["/bin/sh","-c"]
+    command:
+    - |
+      echo first try transcode $URL;
+      wget $URL --output-document /data/input-audio.mp3;
+      /opt/Kaldi_NL/decode_OH.sh /data/input-audio.mp3 /data/output;
+    env_file:
+      - kaldi-nl.env
     logging:
       options:
         max-size: 20m
