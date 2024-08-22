@@ -4,12 +4,15 @@ from base_util import run_shell_command
 
 logger = logging.getLogger(__name__)
 
+
 def run(input_uri: str, output_uri: str) -> bool:
     logger.info("calling Kaldi_NL directly")
     result = download_uri(input_uri)
     logger.info(result)
-    _run_asr(result.file_path, "kaldi-nl-test")
+    if result:
+        _run_asr(result.file_path, "kaldi-nl-test")
     return True
+
 
 # temporarily in this module
 def _run_asr(input_path, asset_id) -> bool:
