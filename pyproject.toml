@@ -52,12 +52,14 @@ exclude = '''
     | \.git          # root of the project
     | build
     | dist
+    | data
   )/
 )
 '''
 
 [tool.mypy]
 python_version = "3.11"
+exclude = "data"
 
 [[tool.mypy.overrides]]
 module = [
