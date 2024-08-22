@@ -3,7 +3,7 @@ from typing import List
 import os.path
 
 import tests.data
-from worker import ParsedResult
+from transcript import ParsedResult
 
 TEST_DATA_PATH = tests.data.__path__[0]
 
