@@ -50,4 +50,4 @@ ENV POETRY_CACHE_DIR=/poetry-cache
 RUN poetry env use python3.10
 RUN poetry install --without dev
 
-ENTRYPOINT ["./docker-entrypoint.sh"]
+ENTRYPOINT ["./dane-worker-entrypoint.sh"]
