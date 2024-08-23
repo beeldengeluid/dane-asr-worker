@@ -1,13 +1,4 @@
-.DS_Store
-amz-k8s-contexts.yml
-k3s-k8s-context.yml
-local-k8s-contexts.yml
-mount
-config.yml
-logs
-scripts/assign_task.py
-scripts/make_docs.py
-scripts/radio-oranje-batch.json
+/.env.override
 .coverage
 __pycache__
 .pytest_cache

@@ -13,8 +13,8 @@ services:
     entrypoint: ["/bin/sh","-c"]
     command:
     - |
-      echo first try transcode $URL;
-      wget $URL --output-document /data/input-audio.mp3;
+      echo download audio sample: $AUDIO_SAMPLE_URL;
+      wget $AUDIO_SAMPLE_URL --output-document /data/input-audio.mp3;
       /opt/Kaldi_NL/decode_OH.sh /data/input-audio.mp3 /data/output;
     env_file:
       - kaldi-nl.env

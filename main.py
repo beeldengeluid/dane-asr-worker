@@ -2,7 +2,7 @@ import logging
 import sys
 
 from base_util import LOG_FORMAT
-import complicated_asr
+from config import audio_sample_url
 import simple_asr
 
 
@@ -22,9 +22,10 @@ if __name__ == "__main__":
 
     # first read the CLI arguments
     parser = ArgumentParser(description="dane-video-segmentation-worker")
-    parser.add_argument("--input", action="store", dest="input_uri", default=None)
+    parser.add_argument(
+        "--input", action="store", dest="input_uri", default=audio_sample_url
+    )
     parser.add_argument("--output", action="store", dest="output_uri", default=None)
-    parser.add_argument("--dane", action="store", dest="dane", default="y")
     parser.add_argument("--log", action="store", dest="loglevel", default="INFO")
     args = parser.parse_args()
 
@@ -40,11 +41,8 @@ if __name__ == "__main__":
     logger.info(f"Logger initialized (log level: {log_level})")
     logger.info(f"Got the following CMD line arguments: {args}")
 
-    if args.dane == "n":
-        logger.info("very good, running Kaldi_NL")
-        if args.input_uri and args.output_uri:
-            simple_asr.run(args.input_uri, args.output_uri)
-        else:
-            logger.error("Please supply the --input and --output params")
+    logger.info("very good, running Kaldi_NL")
+    if args.input_uri:
+        simple_asr.run(args.input_uri, args.output_uri)
     else:
-        complicated_asr.run()
+        logger.error("Please supply the --input and --output params")
