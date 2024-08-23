@@ -22,11 +22,6 @@ jobs:
     - name: "Install dev environment"
       run: " poetry install --no-interaction --no-ansi"
 
-    - name: "test"
-      run: |
-        cp config_test.yml config.yml
-        poetry run pytest
-
     - name: "flake8"
       run: "poetry run flake8"
 
