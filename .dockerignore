@@ -2,6 +2,7 @@
 README.md
 scripts
 tests
+models
 .mypy_cache
 .pytest_cache
 .coverage

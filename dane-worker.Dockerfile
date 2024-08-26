@@ -1,5 +1,5 @@
-FROM public.ecr.aws/a0x3r1t1/kaldi_nl
-# FROM 917951871879.dkr.ecr.eu-west-1.amazonaws.com/kaldi_nl
+# FROM public.ecr.aws/a0x3r1t1/kaldi_nl
+FROM 917951871879.dkr.ecr.eu-west-1.amazonaws.com/kaldi_nl:v1.2
 LABEL org.opencontainers.image.authors="jblom@beeldengeluid.nl"
 
 # switch to root user, to be able to write to the k8s mount, which is root user by default
@@ -10,7 +10,7 @@ RUN apt-get update
 RUN apt-get install -y \
     ffmpeg
 
-# build python 3.10 from source (since deadsnakes does not seem to work here...)
+# build python 3.11 from source (since deadsnakes does not seem to work here...)
 # https://computingforgeeks.com/how-to-install-python-on-ubuntu-linux-system/
 RUN apt update
 RUN apt install -y build-essential \
@@ -25,9 +25,9 @@ RUN apt install -y build-essential \
     wget \
     libbz2-dev
 
-RUN wget https://www.python.org/ftp/python/3.10.6/Python-3.10.6.tgz
-RUN tar -xf Python-3.10.*.tgz
-RUN cd Python-3.10.*/ && ./configure --enable-optimizations && make -j $(nproc) && make install
+RUN wget https://www.python.org/ftp/python/3.11.0/Python-3.11.0.tgz
+RUN tar -xf Python-3.11.*.tgz
+RUN cd Python-3.11.*/ && ./configure --enable-optimizations && make -j $(nproc) && make install
 
 RUN echo "reinstall pip" && apt install -y python3-pip
 
@@ -47,7 +47,7 @@ WORKDIR /src
 
 RUN pip install poetry
 ENV POETRY_CACHE_DIR=/poetry-cache
-RUN poetry env use python3.10
+RUN poetry env use python3.11
 RUN poetry install --without dev
 
 ENTRYPOINT ["./dane-worker-entrypoint.sh"]
