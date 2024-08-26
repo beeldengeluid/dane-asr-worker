@@ -18,4 +18,7 @@ if s3_bucket or s3_endpoint_url or s3_folder_in_bucket:
     assert s3_folder_in_bucket, "Please enter a path within the supplied S3 bucket"
 
 if audio_sample_url:
-    assert validators.url(audio_sample_url), "Please provide a valid AUDIO_SAMPLE_URL"
+    if audio_sample_url[0:5] != "s3://":
+        assert validators.url(
+            audio_sample_url
+        ), "Please provide a valid AUDIO_SAMPLE_URL"
