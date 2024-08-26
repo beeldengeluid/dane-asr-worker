@@ -1,5 +1,6 @@
 # FROM public.ecr.aws/a0x3r1t1/kaldi_nl
-FROM 917951871879.dkr.ecr.eu-west-1.amazonaws.com/kaldi_nl:v1.2
+# FROM 917951871879.dkr.ecr.eu-west-1.amazonaws.com/kaldi_nl:v1.2
+FROM public.ecr.aws/beng/kaldi_nl:latest
 LABEL org.opencontainers.image.authors="jblom@beeldengeluid.nl"
 
 # switch to root user, to be able to write to the k8s mount, which is root user by default
