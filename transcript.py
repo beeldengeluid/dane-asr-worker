@@ -1,17 +1,15 @@
-import os
 import codecs
-import logging
-import shutil
 from codecs import StreamReaderWriter
+import json
+import logging
+import os
 from typing import TypedDict, List
-
-from dane.config import cfg
-from dane.s3_util import S3Store
 
 
 logger = logging.getLogger(__name__)
 CTM_FILE = "1Best.ctm"  # contains the word timings
 TXT_FILE = "1Best.txt"  # contains the words
+JSON_FILE = "transcript.json"  # transcript used for indexing
 
 
 class ParsedResult(TypedDict):
@@ -25,10 +23,10 @@ class ParsedResult(TypedDict):
 
 # asr_output_dir e.g mount/asr-output/1272-128104-0000
 # NOTE: only handles Kaldi_NL generated files at this moment
-def generate_transcript(asr_output_dir: str) -> List[ParsedResult] | None:
+def generate_transcript(asr_output_dir: str) -> bool:
     logger.info(f"Generating transcript from: {asr_output_dir}")
     if not _is_valid_kaldi_output(asr_output_dir):
-        return None
+        return False
 
     transcript = None
     try:
@@ -41,61 +39,20 @@ def generate_transcript(asr_output_dir: str) -> List[ParsedResult] | None:
             os.path.join(asr_output_dir, TXT_FILE), encoding="utf-8"
         ) as asr_file:
             transcript = _parse_asr_results(asr_file, times)
+
+        if not transcript:
+            logger.error("Failed to generate transcript.json")
+            return False
+
+        # write transcript.json
+        with open(os.path.join(asr_output_dir, JSON_FILE), "w+", encoding="utf-8") as f:
+            logger.info(transcript)
+            json.dump(transcript, f, ensure_ascii=False, indent=4)
     except EnvironmentError as e:  # OSError or IOError...
         logger.exception(os.strerror(e.errno))
-
-    return transcript
-
-
-def delete_asr_output(asr_output_dir: str) -> bool:
-    logger.info(f"Deleting output folder: {asr_output_dir}")
-    if asr_output_dir == os.sep or asr_output_dir == ".":
-        logger.warning(f"Rejected deletion of: {asr_output_dir}")
         return False
 
-    if not _is_valid_kaldi_output(asr_output_dir):
-        logger.warning(
-            f"Tried to delete a dir that did not contain ASR output: {asr_output_dir}"
-        )
-        return False
-
-    try:
-        shutil.rmtree(asr_output_dir)
-        logger.info(f"Cleaned up folder {asr_output_dir}")
-    except Exception:
-        logger.exception(f"Failed to delete output dir {asr_output_dir}")
-        return False
     return True
-
-
-def transfer_asr_output(path: str, asset_id: str) -> bool:
-    logger.info(f"Transferring {path} to S3 (asset={asset_id})")
-    if any(
-        [
-            not x
-            for x in [
-                cfg.OUTPUT.S3_ENDPOINT_URL,
-                cfg.OUTPUT.S3_BUCKET,
-                cfg.OUTPUT.S3_FOLDER_IN_BUCKET,
-            ]
-        ]
-    ):
-        logger.warning(
-            "TRANSFER_ON_COMPLETION configured without all the necessary S3 settings"
-        )
-        return False
-
-    s3 = S3Store(cfg.OUTPUT.S3_ENDPOINT_URL)
-    return s3.transfer_to_s3(
-        cfg.OUTPUT.S3_BUCKET,
-        os.path.join(
-            cfg.OUTPUT.S3_FOLDER_IN_BUCKET, asset_id
-        ),  # assets/<program ID>__<carrier ID>
-        [
-            os.path.join(path, CTM_FILE),
-            os.path.join(path, TXT_FILE),
-        ],
-    )
 
 
 def _is_valid_kaldi_output(path: str) -> bool:

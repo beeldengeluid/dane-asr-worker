@@ -1,4 +1,0 @@
-#!/bin/sh
-
-#copy this script to .git/hooks/pre-commit
-scripts/check-project.sh

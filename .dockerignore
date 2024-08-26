@@ -1,12 +1,10 @@
-config_k8s.yml
-config.yml
 .gitignore
 README.md
-k8s*
 scripts
 tests
-mount
-logs
+models
 .mypy_cache
 .pytest_cache
 .coverage
+.env.override
+.env

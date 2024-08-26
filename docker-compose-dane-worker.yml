@@ -1,0 +1,16 @@
+# this docker-compose is for simply running kaldi_nl as is (without dane worker)
+services:
+  dane-worker:
+    user: root # required for downloading models
+    image: dane-asr-worker:latest
+    volumes:
+      - ./models:/models
+      - ./data:/data
+    container_name: new-dane-asr-worker
+    # args: ["--output-uri"]
+    env_file:
+      - .env.override
+    logging:
+      options:
+        max-size: 20m
+    restart: no

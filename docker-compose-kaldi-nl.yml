@@ -1,0 +1,24 @@
+# this docker-compose is for simply running kaldi_nl as is (without dane worker)
+services:
+  kaldi_nl:
+    user: root # required for downloading models
+    extra_hosts:
+      - "model-hosting.beng.nl=123.123.123.123"
+    image: 917951871879.dkr.ecr.eu-west-1.amazonaws.com/kaldi_nl:v1.2
+    # image: proycon/kaldi_nl:latest
+    volumes:
+      - ./models:/models
+      - ./data:/data
+    container_name: simple-kaldi-nl
+    entrypoint: ["/bin/sh","-c"]
+    command:
+    - |
+      echo download audio sample: $AUDIO_SAMPLE_URL;
+      wget $AUDIO_SAMPLE_URL --output-document /data/input-audio.mp3;
+      /opt/Kaldi_NL/decode_OH.sh /data/input-audio.mp3 /data/output;
+    env_file:
+      - .env.override
+    logging:
+      options:
+        max-size: 20m
+    restart: no
