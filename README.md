@@ -9,6 +9,8 @@ Once we are sure DANE can be taken out completely, we will also rename this repo
 - DANE is currently being taken out of this code base
 - the `--input-uri` parameter is fully implemented and supports s3 and http URIs
 - the `--output-uri` parameter has **not** yet been implemented, so output is not sent anywhere at the moment
+- try out this new image in OpenShift and call it from Airflow
+- make sure [the whispeer worker](https://github.com/beeldengeluid/dane-whisper-asr-worker) can also be wired up in the same manner
 
 ## Configuration
 
