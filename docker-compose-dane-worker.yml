@@ -2,8 +2,6 @@
 services:
   dane-worker:
     user: root # required for downloading models
-    extra_hosts:
-      - "modelhosting.beng.nl=46.23.85.61"
     image: dane-asr-worker:latest
     volumes:
       - ./models:/models

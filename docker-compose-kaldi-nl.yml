@@ -3,7 +3,7 @@ services:
   kaldi_nl:
     user: root # required for downloading models
     extra_hosts:
-      - "modelhosting.beng.nl=46.23.85.61"
+      - "model-hosting.beng.nl=123.123.123.123"
     image: 917951871879.dkr.ecr.eu-west-1.amazonaws.com/kaldi_nl:v1.2
     # image: proycon/kaldi_nl:latest
     volumes:
@@ -17,7 +17,7 @@ services:
       wget $AUDIO_SAMPLE_URL --output-document /data/input-audio.mp3;
       /opt/Kaldi_NL/decode_OH.sh /data/input-audio.mp3 /data/output;
     env_file:
-      - kaldi-nl.env
+      - .env.override
     logging:
       options:
         max-size: 20m
