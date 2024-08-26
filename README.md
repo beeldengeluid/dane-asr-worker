@@ -30,8 +30,8 @@ The data dir is structured as follows:
 
 **Note** that the last bit will probably be changed later on. Most likely `data/ouput/{FILE_ID}/1Best.ctm|1Best.txt|transcript.json` will be uploaded uncompressed.
 
+**Note** You can download sample data [here](s3://x-omg-daan-av/dane-asr-worker-sample-data.tar.gz)
 
-**TODO** put a sample data dir in S3 to test out this worker more easily
 
 ### Model dir
 
@@ -53,3 +53,47 @@ Run the worker with:
 ```sh
 docker compose -f docker-compose-dane-worker.yml up
 ```
+
+
+## Python (run with sample data)
+
+Install the Python virtual env with all required packages:
+
+```sh
+poetry install
+```
+
+Enter the virtual env:
+
+```sh
+poetry shell
+```
+
+Test the worker code:
+
+```sh
+./scripts/check-project.sh
+```
+
+Run the worker:
+
+```sh
+./scripts/run.sh
+```
+
+CLI arguments:
+* `--input-uri`: S3 or HTTP URI
+* `--output-uri`: S3 URI (not implemented yet)
+
+
+### Run with sample data
+
+You can download sample data [here](s3://x-omg-daan-av/dane-asr-worker-sample-data.tar.gz). Make sure to put it in the `data` directory within your local copy of this repo.
+
+Make sure to configure your `.env.override` with:
+
+`AUDIO_SAMPLE_URL`=http://fake-hosting.beng.nl/2101608150135908031__NOS_JOURNAAL_-WON01207359.mp4
+
+Since `./data/2101608150135908031__NOS_JOURNAAL_-WON01207359.mp4` already exists, you can test that the worker will skip trying to download the data from that `--input-uri`
+
+Also the worker should see that also the Kald_NL output already exists and will skip calling Kaldi_NL as well (see the `run` function in `simple_asr.py` to follow the workers current processing logic)
